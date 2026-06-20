@@ -10,6 +10,8 @@ import {
     Label,
     InputGroup,
     FieldError,
+    Select,
+    ListBox,
 } from "@heroui/react";
 import { FiEye, FiEyeOff, FiMail, FiLock, FiUser, FiImage } from "react-icons/fi";
 import { FcGoogle } from "react-icons/fc";
@@ -22,6 +24,7 @@ const RegisterPage = () => {
     const [showPassword, setShowPassword] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errorMessage, setErrorMessage] = useState("");
+    const [selectedRole, setSelectedRole] = useState(new Set(["user"])); // ডিফল্ট: user
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -29,26 +32,46 @@ const RegisterPage = () => {
 
         const formData = new FormData(e.currentTarget);
         const { name, email, photoURL, password } = Object.fromEntries(formData.entries());
+        const role = [...selectedRole][0] || "user";
 
         setIsSubmitting(true);
 
+        // ১) প্রথমে সাধারণ ইমেইল/পাসওয়ার্ড দিয়ে সাইন-আপ — role এখানে পাঠানো হচ্ছে না,
+        //    কারণ auth.ts-এ role.input: false, better-auth ক্লায়েন্ট-থেকে role accept করবে না
         const { error } = await authClient.signUp.email({
             name,
             email,
             password,
-            image: photoURL || undefined, // ফাঁকা থাকলে undefined পাঠাও
-            callbackURL: "/", // সফল হলে কোথায় redirect হবে
+            image: photoURL || undefined,
+            callbackURL: "/",
         });
 
-        setIsSubmitting(false);
-
         if (error) {
+            setIsSubmitting(false);
             setErrorMessage(error.message || "Something went wrong. Please try again.");
             toast.error("Registration failed!");
             return;
         }
-        toast.success("Registration Successfull");
-        router.push("/"); // অথবা /dashboard/user — তোমার পছন্দ অনুযায়ী
+
+        // ২) সাইন-আপ সফল হলে, যদি "creator" সিলেক্ট করা হয় তাহলে Next.js-এর নিজের
+        //    API route কল করো (Express সার্ভারে না — কারণ better-auth session শুধু
+        //    Next.js অ্যাপেই verify করা সম্ভব, যেখানে auth.ts আছে)
+        if (role === "creator") {
+            try {
+                await fetch("/api/set-role", {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ role: "creator" }),
+                });
+            } catch (err) {
+                console.error("Role update failed:", err);
+                // role update fail হলেও user তৈরি হয়ে গেছে, তাই সাইলেন্টলি লগ করছি, ব্লক করছি না
+            }
+        }
+
+        setIsSubmitting(false);
+        toast.success("Registration Successful");
+        router.push("/");
     };
 
     const handleGoogleRegister = async () => {
@@ -135,6 +158,31 @@ const RegisterPage = () => {
                             </InputGroup>
                             <FieldError />
                         </TextField>
+
+                        {/* ---- Join as: User / Creator ---- */}
+                        <Select
+                            selectedKeys={selectedRole}
+                            onSelectionChange={setSelectedRole}
+                            placeholder="Select account type"
+                        >
+                            <Label>Join as</Label>
+                            <Select.Trigger className="rounded-xl border border-border bg-background/40 px-3 py-2.5">
+                                <Select.Value />
+                                <Select.Indicator />
+                            </Select.Trigger>
+                            <Select.Popover>
+                                <ListBox>
+                                    <ListBox.Item id="user" textValue="User">
+                                        User — browse, save &amp; review prompts
+                                        <ListBox.ItemIndicator />
+                                    </ListBox.Item>
+                                    <ListBox.Item id="creator" textValue="Creator">
+                                        Creator — publish your own prompts
+                                        <ListBox.ItemIndicator />
+                                    </ListBox.Item>
+                                </ListBox>
+                            </Select.Popover>
+                        </Select>
 
                         <Button
                             type="submit"

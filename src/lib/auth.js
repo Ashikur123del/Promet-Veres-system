@@ -7,15 +7,25 @@ const db = client.db(process.env.DB_NAME);
 
 export const auth = betterAuth({
   database: mongodbAdapter(db, {
-    client
+    client,
   }),
-   emailAndPassword: { 
-    enabled: true, 
+  emailAndPassword: {
+    enabled: true,
   },
-   socialProviders: {
-        google: { 
-            clientId: process.env.GOOGLE_CLIENT_ID, 
-            clientSecret: process.env.GOOGLE_CLIENT_SECRET, 
-        }, 
+  socialProviders: {
+    google: {
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     },
+  },
+
+  user: {
+    additionalFields: {
+      role: {
+        type: "string",
+        input: false, // ক্লায়েন্ট থেকে role সেট করা যাবে না — security-এর জন্য জরুরি
+        defaultValue: "user", // ✅ নতুন — email আর Google সাইন-আপ দুটোতেই ডিফল্ট role: "user"
+      },
+    },
+  },
 });
