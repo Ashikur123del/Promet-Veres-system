@@ -34,7 +34,7 @@ const Navbar = () => {
         {/* Navigation Links */}
         <div className="flex items-center gap-6">
           <Link href="/" className={`text-sm font-medium ${pathname === "/" ? "text-foreground" : "text-muted hover:text-foreground"}`}>Home</Link>
-          <Link href="/all-prompts" className={`text-sm font-medium ${pathname === "/all-prompts" ? "text-foreground" : "text-muted hover:text-foreground"}`}>All Prompts</Link>
+          <Link href="/allprompts" className={`text-sm font-medium ${pathname === "/allprompts" ? "text-foreground" : "text-muted hover:text-foreground"}`}>All Prompts</Link>
 
           {!isPending && session ? (
             // Logged In Layout
