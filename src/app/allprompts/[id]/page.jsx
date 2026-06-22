@@ -14,6 +14,7 @@ import {
 } from "react-icons/fi";
 import { authClient } from "@/lib/auth-client";
 import { toast } from "react-toastify";
+import { buttonVariants } from "@heroui/styles";
 
 
 const PromptDetailsPage = () => {
@@ -72,7 +73,7 @@ const PromptDetailsPage = () => {
 
   if (isLoading) {
     return (
-      <div className="py-16 container mx-auto">
+      <div className="py-16">
         <div className="h-96 animate-pulse rounded-2xl border border-border bg-surface" />
       </div>
     );
@@ -80,9 +81,9 @@ const PromptDetailsPage = () => {
 
   if (!prompt) {
     return (
-      <div  className="py-16 container text-center">
+      <div className="py-16 text-center">
         <p className="text-muted">Prompt not found.</p>
-        <Link href="/all-prompts" className="mt-2 inline-block text-accent hover:underline">
+        <Link href="/allprompts" className="mt-2 inline-block text-accent hover:underline">
           ← Back to all prompts
         </Link>
       </div>
@@ -91,10 +92,10 @@ const PromptDetailsPage = () => {
 
   return (
     <section className="bg-background py-10">
-      <div className="container">
+      <div className="max-w-4xl">
         {/* ---- Back link ---- */}
         <Link
-          href="/all-prompts"
+          href="/allprompts"
           className="mb-6 inline-flex items-center gap-1 text-sm text-muted hover:text-foreground"
         >
           <FiArrowLeft size={14} /> Back to all prompts
@@ -176,9 +177,9 @@ const PromptDetailsPage = () => {
               <p className="text-sm font-medium text-surface-foreground">
                 This is a Premium prompt
               </p>
-              <Button as={Link} href="/payment" variant="primary" radius="full">
+              <Link href="/payment" className={buttonVariants({ variant: "primary" })}>
                 Subscribe to Premium
-              </Button>
+              </Link>
             </div>
           )}
         </div>

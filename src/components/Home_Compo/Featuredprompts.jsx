@@ -3,11 +3,9 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Button } from "@heroui/react";
+import { buttonVariants } from "@heroui/styles";
 import { FiCopy, FiStar, FiUser, FiArrowRight } from "react-icons/fi";
 import { serverFetch } from "@/lib/core/service";
-
-
 
 // AI tool আর difficulty অনুযায়ী badge রং — চাইলে নাম যুক্ত/পরিবর্তন করো
 const TOOL_BADGE_STYLES = {
@@ -68,7 +66,7 @@ const FeaturedPrompts = () => {
 
   return (
     <section className="bg-background py-20">
-      <div className="container mx-auto">
+      <div>
         {/* ---- Section header ---- */}
         <div className="mb-10 flex items-end justify-between">
           <div>
@@ -78,7 +76,7 @@ const FeaturedPrompts = () => {
             <h2 className="mt-1 text-3xl font-bold text-foreground">Featured Prompts</h2>
           </div>
           <Link
-            href="/all-prompts"
+            href="/allprompts"
             className="hidden items-center gap-1 text-sm font-medium text-accent hover:underline sm:flex"
           >
             View all prompts <FiArrowRight size={14} />
@@ -162,15 +160,12 @@ const FeaturedPrompts = () => {
                     </div>
 
                     {/* ---- CTA ---- */}
-                    <Button
-                      as={Link}
-                      href={`/prompt/${prompt._id}`}
-                      variant="primary"
-                      radius="full"
-                      className="mt-2 w-full"
+                    <Link
+                      href={`/allprompts/${prompt._id}`}
+                      className={buttonVariants({ variant: "primary" }) + " mt-2 w-full"}
                     >
                       View Details
-                    </Button>
+                    </Link>
                   </div>
                 </motion.div>
               ))}
@@ -178,7 +173,7 @@ const FeaturedPrompts = () => {
 
         {/* ---- Mobile "view all" link ---- */}
         <Link
-          href="/all-prompts"
+          href="/allprompts"
           className="mt-8 flex items-center justify-center gap-1 text-sm font-medium text-accent hover:underline sm:hidden"
         >
           View all prompts <FiArrowRight size={14} />

@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Button } from "@heroui/react";
 import { FiSearch, FiCopy, FiStar, FiUser, FiChevronLeft, FiChevronRight } from "react-icons/fi";
 import { MdWorkspacePremium } from "react-icons/md";
+import { buttonVariants } from "@heroui/styles";
 
 
 const AI_ENGINES = ["All", "ChatGPT", "Gemini", "Claude", "Midjourney", "Stable Diffusion", "Other"];
@@ -53,6 +53,7 @@ const AllPrompts = () => {
   const [sort, setSort] = useState("latest");
   const [page, setPage] = useState(1);
 
+  // ---- Debounced fetch — filter/sort/page বদলালে বা search টাইপ করার ৪০০ms পর fetch হবে ----
   useEffect(() => {
     const timer = setTimeout(() => {
       const fetchPrompts = async () => {
@@ -96,7 +97,7 @@ const AllPrompts = () => {
 
   return (
     <section className="bg-background py-12">
-      <div className="container mx-auto">
+      <div>
         {/* ---- Header ---- */}
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -270,15 +271,12 @@ const AllPrompts = () => {
                             </span>
                           </div>
 
-                          <Button
-                            as={Link}
-                            href={`/prompt/${prompt._id}`}
-                            variant="primary"
-                            radius="full"
-                            className="mt-2 w-full"
+                          <Link
+                            href={`/allprompts/${prompt._id}`}
+                            className={buttonVariants({ variant: "primary" }) + " mt-2 w-full"}
                           >
                             View Details
-                          </Button>
+                          </Link>
                         </div>
                       </div>
                     );

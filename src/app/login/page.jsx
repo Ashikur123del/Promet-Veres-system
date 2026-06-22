@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import {
   Button,
-  Link as HeroLink,
   Form,
   TextField,
   Label,
@@ -16,7 +15,6 @@ import { FiEye, FiEyeOff, FiMail, FiLock } from "react-icons/fi";
 import { FcGoogle } from "react-icons/fc";
 import { HiSparkles } from "react-icons/hi2";
 import { authClient } from "@/lib/auth-client";
-import { toast } from "react-toastify";
 
 const LoginPage = () => {
   const router = useRouter();
@@ -39,14 +37,26 @@ const LoginPage = () => {
       callbackURL: "/",
     });
 
-    setIsSubmitting(false);
-
     if (error) {
       setErrorMessage(error.message || "Invalid email or password.");
-      toast.error("Login failed!");
+      setIsSubmitting(false);
       return;
     }
-    toast.success("Login Successfull");
+
+    // ---- JWT fetch করে localStorage-এ রাখা (পুরনো/ভিন্ন অ্যাকাউন্টের token থাকলে overwrite হয়ে যাবে) ----
+    try {
+      const jwtRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/jwt`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const { token } = await jwtRes.json();
+      if (token) localStorage.setItem("access-token", token);
+    } catch (err) {
+      console.error("JWT fetch failed:", err);
+    }
+
+    setIsSubmitting(false);
     router.push("/");
   };
 
