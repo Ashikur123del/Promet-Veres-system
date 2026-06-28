@@ -9,22 +9,45 @@ import {
   FaBookmark,
   FaCommentDots,
   FaSignOutAlt,
+  FaChartLine,
+  FaUsers,
+  FaClipboardList,
+  FaMoneyBillWave,
+  FaFlag,
 } from "react-icons/fa";
 import { HiSparkles } from "react-icons/hi2";
 import { authClient } from "@/lib/auth-client";
 
-const LINKS = [
-  { name: "My Profile", href: "/dashboard/userprofile", icon: FaUser },
-  { name: "Add Prompt", href: "/dashboard/add-prompt", icon: FaPlusCircle },
-  { name: "My Prompts", href: "/dashboard/my-prompt", icon: FaListAlt },
-  { name: "Saved Prompts", href: "/dashboard/saved-prompt", icon: FaBookmark },
-  { name: "My Reviews", href: "/dashboard/my-reviews", icon: FaCommentDots },
-];
+// ---- Role অনুযায়ী আলাদা link set ----
+const LINKS_BY_ROLE = {
+  user: [
+    { name: "My Profile", href: "/dashboard/userprofile", icon: FaUser },
+    { name: "Add Prompt", href: "/dashboard/add-prompt", icon: FaPlusCircle },
+    { name: "My Prompts", href: "/dashboard/my-prompt", icon: FaListAlt },
+    { name: "Saved Prompts", href: "/dashboard/saved-prompt", icon: FaBookmark },
+    { name: "My Reviews", href: "/dashboard/my-reviews", icon: FaCommentDots },
+  ],
+  creator: [
+    { name: "Dashboard Home", href: "/dashboard/creator/creatordashboard", icon: FaChartLine },
+    { name: "Add Prompt", href: "/dashboard/creator/editprompt", icon: FaPlusCircle },
+    { name: "My Prompts", href: "/dashboard/creator/myprompts", icon: FaListAlt },
+  ],
+  admin: [
+    { name: "All Users", href: "/dashboard/admin/adminuser", icon: FaUsers },
+    { name: "All Prompts", href: "/dashboard/admin/adminprompts", icon: FaClipboardList },
+    { name: "All Payments", href: "/dashboard/admin/payments", icon: FaMoneyBillWave },
+    { name: "Reported Prompts", href: "/dashboard/admin/adminreports", icon: FaFlag },
+    { name: "Analytics", href: "/dashboard/admin/adminanaly", icon: FaChartLine },
+  ],
+};
 
 const Sidebar = () => {
   const pathname = usePathname();
-  const { data: session } = authClient.useSession();
+  const { data: session, isPending } = authClient.useSession();
   const user = session?.user;
+  const role = user?.role || "user"; // ডিফল্ট user — better-auth-এ defaultValue: "user" সেট করা আছে
+
+  const links = LINKS_BY_ROLE[role] || LINKS_BY_ROLE.user;
 
   const handleLogout = async () => {
     await authClient.signOut();
@@ -43,7 +66,9 @@ const Sidebar = () => {
 
       {/* ---- User info card ---- */}
       <div className="mb-6 flex items-center gap-3 rounded-xl border border-border bg-background/40 p-3">
-        {user?.image ? (
+        {isPending ? (
+          <div className="h-10 w-10 animate-pulse rounded-full bg-default-200/40" />
+        ) : user?.image ? (
           <img src={user.image} alt={user.name} className="h-10 w-10 rounded-full object-cover" />
         ) : (
           <div className="grid h-10 w-10 place-items-center rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-sm font-bold text-white">
@@ -54,15 +79,13 @@ const Sidebar = () => {
           <p className="text-sm font-semibold text-surface-foreground">
             {user?.name || "User"}
           </p>
-          <p className="text-xs uppercase tracking-wide text-muted">
-            {user?.role || "USER"}
-          </p>
+          <p className="text-xs uppercase tracking-wide text-muted">{role}</p>
         </div>
       </div>
 
-      {/* ---- Nav Links ---- */}
+      {/* ---- Nav Links (role অনুযায়ী) ---- */}
       <nav className="flex flex-grow flex-col gap-2">
-        {LINKS.map(({ name, href, icon: Icon }) => {
+        {links.map(({ name, href, icon: Icon }) => {
           const isActive = pathname === href;
           return (
             <Link

@@ -43,15 +43,12 @@ const LoginPage = () => {
       return;
     }
 
-    // ---- JWT fetch করে localStorage-এ রাখা (পুরনো/ভিন্ন অ্যাকাউন্টের token থাকলে overwrite হয়ে যাবে) ----
+    // ---- better-auth এর jwt() প্লাগিন থেকে টোকেন নিয়ে localStorage-এ রাখা ---
+    // এটা Express সার্ভারের protected রুট (যেমন POST /api/prompts) কল করার জন্য লাগবে
     try {
-      const jwtRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/jwt`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-      const { token } = await jwtRes.json();
-      if (token) localStorage.setItem("access-token", token);
+      const { data, error: tokenError } = await authClient.token();
+      if (tokenError) throw new Error(tokenError.message);
+      if (data?.token) localStorage.setItem("access-token", data.token);
     } catch (err) {
       console.error("JWT fetch failed:", err);
     }

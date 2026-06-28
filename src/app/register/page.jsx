@@ -58,19 +58,38 @@ const RegisterPage = () => {
         //    Next.js অ্যাপেই verify করা সম্ভব, যেখানে auth.ts আছে)
         if (role === "creator") {
             try {
-                await fetch("/api/set-role", {
+                const roleRes = await fetch("/api/set-role", {
                     method: "PATCH",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ role: "creator" }),
                 });
+                const roleData = await roleRes.json();
+
+                if (!roleRes.ok) {
+                    console.error("Role update failed:", roleData.message);
+                } else {
+                    // ✅ DB-তে role আপডেট সফল — cookieCache-এ পুরনো role থেকে যেতে পারে,
+                    // disableCookieCache দিয়ে জোর করে fresh session টানছি
+                    await authClient.getSession({ query: { disableCookieCache: true } });
+                }
             } catch (err) {
                 console.error("Role update failed:", err);
-                // role update fail হলেও user তৈরি হয়ে গেছে, তাই সাইলেন্টলি লগ করছি, ব্লক করছি না
             }
         }
 
         setIsSubmitting(false);
         toast.success("Registration Successful");
+
+        // ---- better-auth এর jwt() প্লাগিন থেকে টোকেন নিয়ে localStorage-এ রাখা ---
+        // এটা Express সার্ভারের protected রুট (যেমন POST /api/prompts) কল করার জন্য লাগবে
+        try {
+            const { data, error: tokenError } = await authClient.token();
+            if (tokenError) throw new Error(tokenError.message);
+            if (data?.token) localStorage.setItem("access-token", data.token);
+        } catch (err) {
+            console.error("JWT fetch failed:", err);
+        }
+
         router.push("/");
     };
 
