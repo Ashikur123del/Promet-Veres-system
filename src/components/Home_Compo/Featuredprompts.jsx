@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { buttonVariants } from "@heroui/styles";
 import { FiCopy, FiStar, FiUser, FiArrowRight } from "react-icons/fi";
 import { serverFetch } from "@/lib/core/service";
+import { authClient } from "@/lib/auth-client";
 
 // AI tool আর difficulty অনুযায়ী badge রং — চাইলে নাম যুক্ত/পরিবর্তন করো
 const TOOL_BADGE_STYLES = {
@@ -45,9 +47,19 @@ const PromptCardSkeleton = () => (
 );
 
 const FeaturedPrompts = () => {
+  const router = useRouter();
+  const { data: session } = authClient.useSession();
   const [prompts, setPrompts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+
+  const handleViewDetails = (promptId) => {
+    if (!session?.user) {
+      router.push("/login");
+      return;
+    }
+    router.push(`/allprompts/${promptId}`);
+  };
 
   useEffect(() => {
     const fetchFeaturedPrompts = async () => {
@@ -160,12 +172,13 @@ const FeaturedPrompts = () => {
                     </div>
 
                     {/* ---- CTA ---- */}
-                    <Link
-                      href={`/allprompts/${prompt._id}`}
+                    <button
+                      type="button"
+                      onClick={() => handleViewDetails(prompt._id)}
                       className={buttonVariants({ variant: "primary" }) + " mt-2 w-full"}
                     >
                       View Details
-                    </Link>
+                    </button>
                   </div>
                 </motion.div>
               ))}

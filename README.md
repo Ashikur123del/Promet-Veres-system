@@ -1,36 +1,98 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# PromptVerse — AI Prompt Sharing & Marketplace Platform
 
-## Getting Started
+A modern community-driven platform to create, discover, bookmark, and manage AI prompts for ChatGPT, Gemini, Claude, Midjourney, and more.
 
-First, run the development server:
+## Live URL
+
+- **Frontend:** `https://your-frontend.vercel.app` *(update after deployment)*
+- **Backend API:** `https://your-api.vercel.app` *(update after deployment)*
+
+## Key Features
+
+- JWT-based authentication with email/password and Google OAuth
+- Role-based access control (User, Creator, Admin)
+- Prompt marketplace with search, filter, sort, and pagination
+- Bookmark, copy, review, and report prompts
+- Stripe one-time $5 Premium payment for private prompts
+- User, Creator, and Admin dashboards with analytics
+- Framer Motion animations on landing page sections
+- Responsive design for mobile, tablet, and desktop
+
+## Tech Stack
+
+| Category | Packages |
+|----------|----------|
+| Framework | Next.js 16, React 19 |
+| Auth | better-auth, @better-auth/mongo-adapter |
+| UI | @heroui/react, Tailwind CSS v4 |
+| Animation | framer-motion |
+| Charts | recharts |
+| Forms | react-hook-form |
+| Notifications | react-toastify |
+| Icons | react-icons |
+| Database | MongoDB (via better-auth adapter) |
+
+## Environment Setup
+
+1. Copy the example env file:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env.local
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. Fill in all variables in `.env.local`:
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+| Variable | Description |
+|----------|-------------|
+| `NEXT_PUBLIC_API_URL` | Express backend URL |
+| `MONGO_DB_URI` | MongoDB connection string |
+| `DB_NAME` | Database name (`Prompt_Verse`) |
+| `GOOGLE_CLIENT_ID` | Google OAuth client ID |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
+| `NEXT_PUBLIC_BETTER_AUTH_URL` | Frontend URL (e.g. `http://localhost:3000`) |
+| `BETTER_AUTH_SECRET` | Random secret (`openssl rand -base64 32`) |
+| `NEXT_PUBLIC_IMGBB_API_KEY` | imgbb API key for thumbnail uploads |
+| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe publishable key |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Run Locally
 
-## Learn More
+```bash
+# Install dependencies
+npm install
 
-To learn more about Next.js, take a look at the following resources:
+# Start frontend (port 3000)
+npm run dev
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Also start the backend server from `Prompt-Veres-Server`:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+cd ../Prompt-Veres-Server
+npm install
+npm start
+```
 
-## Deploy on Vercel
+## Project Structure
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```
+src/
+├── app/                  # Next.js App Router pages
+│   ├── allprompts/       # Browse & prompt details
+│   ├── dashboard/        # User, Creator, Admin dashboards
+│   ├── payment/          # Stripe Premium checkout
+│   └── api/auth/         # better-auth handler
+├── components/           # Reusable UI components
+└── lib/                  # Auth, API helpers
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Admin Credentials
+
+*(Fill in after creating admin user)*
+
+- **Email:** admin@example.com
+- **Password:** *(your admin password)*
+
+## Repository Links
+
+- **Client:** `https://github.com/your-username/promptverse-client`
+- **Server:** `https://github.com/your-username/promptverse-server`

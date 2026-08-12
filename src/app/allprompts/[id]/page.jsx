@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Button } from "@heroui/react";
 import {
@@ -13,37 +13,62 @@ import {
   FiLock,
 } from "react-icons/fi";
 import { authClient } from "@/lib/auth-client";
+import { authFetch } from "@/lib/core/service";
 import { toast } from "react-toastify";
 import { buttonVariants } from "@heroui/styles";
-
+import ReportModal from "@/components/ReportModal";
 
 const PromptDetailsPage = () => {
   const { id } = useParams();
+  const router = useRouter();
   const { data: session } = authClient.useSession();
   const currentUser = session?.user;
 
   const [prompt, setPrompt] = useState(null);
+  const [reviews, setReviews] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isBookmarked, setIsBookmarked] = useState(false); // ⚠️ এখনো static — পরে /api/bookmarks থেকে চেক করতে হবে
+  const [isBookmarked, setIsBookmarked] = useState(false);
+  const [isPremiumUser, setIsPremiumUser] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState("");
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
 
   useEffect(() => {
-    const fetchPrompt = async () => {
+    if (!currentUser) {
+      router.push("/login");
+      return;
+    }
+
+    const fetchData = async () => {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/prompts/${id}`);
-        const data = await res.json();
-        setPrompt(data);
+        const [promptData, reviewsData, profileData] = await Promise.all([
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/prompts/${id}`).then((r) => r.json()),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/reviews/${id}`).then((r) => r.json()),
+          authFetch("/api/users/me"),
+        ]);
+
+        setPrompt(promptData);
+        setReviews(Array.isArray(reviewsData) ? reviewsData : []);
+        setIsPremiumUser(profileData.isPremium === true);
+
+        try {
+          const bookmarkData = await authFetch(`/api/bookmarks/check/${id}`);
+          setIsBookmarked(bookmarkData.bookmarked);
+        } catch {
+          setIsBookmarked(false);
+        }
       } catch (error) {
         console.error("Failed to load prompt:", error);
+        toast.error("Failed to load prompt details");
       } finally {
         setIsLoading(false);
       }
     };
 
-    if (id) fetchPrompt();
-  }, [id]);
+    if (id) fetchData();
+  }, [id, currentUser, router]);
 
-  // ⚠️ currentUser.isPremium এখনো better-auth session-এ নেই — /api/users/:id থেকে আনতে হবে পরে
-  const isPremiumUser = currentUser?.isPremium === true;
   const isLockedContent = prompt?.visibility === "private" && !isPremiumUser;
 
   const handleCopy = async () => {
@@ -55,20 +80,46 @@ const PromptDetailsPage = () => {
       });
       setPrompt((prev) => ({ ...prev, copyCount: (prev.copyCount ?? 0) + 1 }));
       toast.success("Prompt copied to clipboard!");
-    } catch (error) {
+    } catch {
       toast.error("Failed to copy prompt.");
     }
   };
 
-  const handleBookmark = () => {
-    // ⚠️ এখনো শুধু UI টগল — পরে /api/bookmarks (POST/DELETE) দিয়ে persist করতে হবে
-    setIsBookmarked((prev) => !prev);
-    toast.success(isBookmarked ? "Bookmark removed" : "Prompt bookmarked");
+  const handleBookmark = async () => {
+    try {
+      const data = await authFetch("/api/bookmarks", {
+        method: "POST",
+        body: JSON.stringify({ promptId: id }),
+      });
+      setIsBookmarked(data.bookmarked);
+      toast.success(data.message);
+    } catch (error) {
+      toast.error(error.message || "Failed to update bookmark");
+    }
   };
 
-  const handleReport = () => {
-    // ⚠️ পরে এখানে একটা modal খুলবে (reason select + description) — doc অনুযায়ী
-    toast.info("Report modal — পরে যুক্ত করা হবে");
+  const handleSubmitReview = async (e) => {
+    e.preventDefault();
+    if (isLockedContent) return;
+    setIsSubmittingReview(true);
+    try {
+      const newReview = await authFetch("/api/reviews", {
+        method: "POST",
+        body: JSON.stringify({
+          promptId: id,
+          rating: reviewRating,
+          comment: reviewComment,
+        }),
+      });
+      setReviews((prev) => [newReview, ...prev]);
+      setReviewComment("");
+      setReviewRating(5);
+      toast.success("Review submitted!");
+    } catch (error) {
+      toast.error(error.message || "Failed to submit review");
+    } finally {
+      setIsSubmittingReview(false);
+    }
   };
 
   if (isLoading) {
@@ -79,7 +130,7 @@ const PromptDetailsPage = () => {
     );
   }
 
-  if (!prompt) {
+  if (!prompt || prompt.message) {
     return (
       <div className="py-16 text-center">
         <p className="text-muted">Prompt not found.</p>
@@ -92,8 +143,7 @@ const PromptDetailsPage = () => {
 
   return (
     <section className="bg-background py-10">
-      <div className="max-w-4xl">
-        {/* ---- Back link ---- */}
+      <div className="container mx-auto max-w-4xl px-4">
         <Link
           href="/allprompts"
           className="mb-6 inline-flex items-center gap-1 text-sm text-muted hover:text-foreground"
@@ -101,14 +151,12 @@ const PromptDetailsPage = () => {
           <FiArrowLeft size={14} /> Back to all prompts
         </Link>
 
-        {/* ---- Thumbnail ---- */}
         <div className="mb-6 h-64 w-full overflow-hidden rounded-2xl bg-default-200/30">
           {prompt.thumbnail && (
             <img src={prompt.thumbnail} alt={prompt.title} className="h-full w-full object-cover" />
           )}
         </div>
 
-        {/* ---- Badges ---- */}
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <span className="rounded-full bg-accent/15 px-3 py-1 text-xs font-semibold uppercase text-accent">
             {prompt.aiTool}
@@ -128,7 +176,6 @@ const PromptDetailsPage = () => {
 
         <h1 className="text-3xl font-bold text-foreground">{prompt.title}</h1>
 
-        {/* ---- Creator + stats ---- */}
         <div className="mt-3 flex items-center gap-5 text-sm text-muted">
           <span>By {prompt.creatorName || "Unknown Creator"}</span>
           <span className="flex items-center gap-1">
@@ -139,7 +186,6 @@ const PromptDetailsPage = () => {
           </span>
         </div>
 
-        {/* ---- Action buttons ---- */}
         <div className="mt-5 flex flex-wrap gap-3">
           <Button variant="primary" radius="full" onPress={handleCopy} isDisabled={isLockedContent}>
             <FiCopy size={16} /> Copy Prompt
@@ -148,21 +194,23 @@ const PromptDetailsPage = () => {
             <FiBookmark size={16} className={isBookmarked ? "fill-accent text-accent" : ""} />
             {isBookmarked ? "Bookmarked" : "Bookmark"}
           </Button>
-          <Button variant="ghost" radius="full" className="border border-border" onPress={handleReport}>
+          <Button
+            variant="ghost"
+            radius="full"
+            className="border border-border"
+            onPress={() => setShowReportModal(true)}
+          >
             <FiFlag size={16} /> Report
           </Button>
         </div>
 
-        {/* ---- Description ---- */}
         <div className="mt-8 rounded-2xl border border-border bg-surface p-6">
           <h2 className="text-base font-semibold text-surface-foreground">Description</h2>
           <p className="mt-2 text-sm text-muted">{prompt.description}</p>
         </div>
 
-        {/* ---- Prompt content (lock if premium + not subscribed) ---- */}
         <div className="relative mt-6 overflow-hidden rounded-2xl border border-border bg-surface p-6">
           <h2 className="text-base font-semibold text-surface-foreground">Prompt Content</h2>
-
           <p
             className={`mt-2 whitespace-pre-wrap text-sm text-muted ${
               isLockedContent ? "blur-sm select-none" : ""
@@ -170,13 +218,10 @@ const PromptDetailsPage = () => {
           >
             {prompt.content}
           </p>
-
           {isLockedContent && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-surface/80 backdrop-blur-sm">
               <FiLock size={28} className="text-accent" />
-              <p className="text-sm font-medium text-surface-foreground">
-                This is a Premium prompt
-              </p>
+              <p className="text-sm font-medium text-surface-foreground">This is a Premium prompt</p>
               <Link href="/payment" className={buttonVariants({ variant: "primary" })}>
                 Subscribe to Premium
               </Link>
@@ -184,36 +229,90 @@ const PromptDetailsPage = () => {
           )}
         </div>
 
-        {/* ---- Tags ---- */}
         {prompt.tags?.length > 0 && (
           <div className="mt-6 flex flex-wrap gap-2">
             {prompt.tags.map((tag) => (
-              <span
-                key={tag}
-                className="rounded-full border border-border px-3 py-1 text-xs text-muted"
-              >
+              <span key={tag} className="rounded-full border border-border px-3 py-1 text-xs text-muted">
                 #{tag}
               </span>
             ))}
           </div>
         )}
 
-        {/* ---- Reviews & Ratings ---- */}
         <div className="mt-10">
           <h2 className="mb-4 text-lg font-semibold text-foreground">Reviews &amp; Ratings</h2>
 
-          {/* ⚠️ এখনো static placeholder — পরে /api/reviews?promptId= থেকে real রিভিউ আনতে হবে */}
-          <p className="text-sm text-muted">No reviews yet. Be the first to review this prompt.</p>
+          {reviews.length === 0 ? (
+            <p className="text-sm text-muted">No reviews yet. Be the first to review this prompt.</p>
+          ) : (
+            <div className="space-y-4">
+              {reviews.map((review) => (
+                <div key={review._id} className="rounded-2xl border border-border bg-surface p-5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-semibold text-surface-foreground">{review.reviewerName}</p>
+                      <p className="text-xs text-muted">{review.reviewerEmail}</p>
+                    </div>
+                    <div className="text-right">
+                      <div className="flex items-center gap-0.5 text-yellow-400">
+                        {Array.from({ length: review.rating }).map((_, i) => (
+                          <FiStar key={i} size={14} className="fill-yellow-400" />
+                        ))}
+                      </div>
+                      <p className="mt-1 text-xs text-muted">
+                        {new Date(review.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                  <p className="mt-3 text-sm text-muted">{review.comment}</p>
+                </div>
+              ))}
+            </div>
+          )}
 
           {!isLockedContent && currentUser && (
-            <div className="mt-4 rounded-2xl border border-border bg-surface p-5">
-              <p className="text-sm text-muted">
-                Review submission form এখানে যুক্ত হবে (rating + comment) — পরে বানাবো।
-              </p>
-            </div>
+            <form onSubmit={handleSubmitReview} className="mt-6 rounded-2xl border border-border bg-surface p-5">
+              <h3 className="mb-3 text-sm font-semibold text-surface-foreground">Write a Review</h3>
+              <div className="mb-3 flex items-center gap-2">
+                <span className="text-sm text-muted">Rating:</span>
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => setReviewRating(star)}
+                    className="text-yellow-400"
+                  >
+                    <FiStar size={20} className={star <= reviewRating ? "fill-yellow-400" : ""} />
+                  </button>
+                ))}
+              </div>
+              <textarea
+                value={reviewComment}
+                onChange={(e) => setReviewComment(e.target.value)}
+                required
+                rows={3}
+                placeholder="Share your experience with this prompt..."
+                className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground outline-none focus:border-accent"
+              />
+              <Button
+                variant="primary"
+                radius="full"
+                type="submit"
+                className="mt-3"
+                isDisabled={isSubmittingReview}
+              >
+                {isSubmittingReview ? "Submitting..." : "Submit Review"}
+              </Button>
+            </form>
           )}
         </div>
       </div>
+
+      <ReportModal
+        promptId={id}
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+      />
     </section>
   );
 };
