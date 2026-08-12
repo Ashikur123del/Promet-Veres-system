@@ -3,10 +3,12 @@ import { MongoClient } from "mongodb";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
 import { jwt } from "better-auth/plugins";
 
-const client = new MongoClient(process.env.MONGO_DB_URI);
-const db = client.db(process.env.DB_NAME);
+const client = new MongoClient(process.env.MONGO_DB_URI || "mongodb://127.0.0.1:27017");
+const db = client.db(process.env.DB_NAME || "Prompt_Verse");
 
 export const auth = betterAuth({
+  secret: process.env.BETTER_AUTH_SECRET,
+  baseURL: process.env.NEXT_PUBLIC_BETTER_AUTH_URL || "http://localhost:3000",
   database: mongodbAdapter(db, {
     client,
   }),
@@ -24,8 +26,13 @@ export const auth = betterAuth({
     additionalFields: {
       role: {
         type: "string",
-        input: false, // ক্লায়েন্ট থেকে role সেট করা যাবে না — security-এর জন্য জরুরি
-        defaultValue: "user", // ✅ নতুন — email আর Google সাইন-আপ দুটোতেই ডিফল্ট role: "user"
+        input: false,
+        defaultValue: "user",
+      },
+      isPremium: {
+        type: "boolean",
+        input: false,
+        defaultValue: false,
       },
     },
   },
