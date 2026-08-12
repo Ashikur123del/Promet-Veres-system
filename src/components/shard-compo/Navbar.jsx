@@ -28,7 +28,7 @@ const Navbar = () => {
           <span className="grid h-8 w-8 place-items-center rounded-md bg-accent text-accent-foreground">
             <HiSparkles size={16} />
           </span>
-          <span className="text-xl font-bold tracking-tight">AIverse</span>
+          <span className="text-xl font-bold tracking-tight">PromptVerse</span>
         </Link>
 
         {/* Navigation Links */}

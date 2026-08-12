@@ -29,7 +29,7 @@ const LINKS_BY_ROLE = {
   ],
   creator: [
     { name: "Dashboard Home", href: "/dashboard/creator/creatordashboard", icon: FaChartLine },
-    { name: "Add Prompt", href: "/dashboard/creator/editprompt", icon: FaPlusCircle },
+    { name: "Add Prompt", href: "/dashboard/add-prompt", icon: FaPlusCircle },
     { name: "My Prompts", href: "/dashboard/creator/myprompts", icon: FaListAlt },
   ],
   admin: [
@@ -61,7 +61,7 @@ const Sidebar = () => {
         <span className="grid h-8 w-8 place-items-center rounded-lg bg-accent text-accent-foreground">
           <HiSparkles size={16} />
         </span>
-        <span className="text-xl font-bold">PromptHaus</span>
+        <span className="text-xl font-bold">PromptVerse</span>
       </Link>
 
       {/* ---- User info card ---- */}
