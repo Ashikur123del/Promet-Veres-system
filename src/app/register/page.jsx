@@ -17,80 +17,88 @@ import { FiEye, FiEyeOff, FiMail, FiLock, FiUser, FiImage } from "react-icons/fi
 import { FcGoogle } from "react-icons/fc";
 import { HiSparkles } from "react-icons/hi2";
 import { authClient } from "@/lib/auth-client";
+import { isValidAvatarUrl } from "@/lib/dashboard-routes";
 import { toast } from "react-toastify";
 
 const RegisterPage = () => {
     const router = useRouter();
+    const googleEnabled = Boolean(
+        process.env.NEXT_PUBLIC_GOOGLE_AUTH_ENABLED === "true"
+    );
     const [showPassword, setShowPassword] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errorMessage, setErrorMessage] = useState("");
-    const [selectedRole, setSelectedRole] = useState(new Set(["user"])); // ডিফল্ট: user
+    const [selectedRole, setSelectedRole] = useState(new Set(["user"]));
+    const [name, setName] = useState("");
+    const [email, setEmail] = useState("");
+    const [photoURL, setPhotoURL] = useState("");
+    const [password, setPassword] = useState("");
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setErrorMessage("");
 
-        const formData = new FormData(e.currentTarget);
-        const { name, email, photoURL, password } = Object.fromEntries(formData.entries());
         const role = [...selectedRole][0] || "user";
 
-        setIsSubmitting(true);
-
-        // ১) প্রথমে সাধারণ ইমেইল/পাসওয়ার্ড দিয়ে সাইন-আপ — role এখানে পাঠানো হচ্ছে না,
-        //    কারণ auth.ts-এ role.input: false, better-auth ক্লায়েন্ট-থেকে role accept করবে না
-        const { error } = await authClient.signUp.email({
-            name,
-            email,
-            password,
-            image: photoURL || undefined,
-            callbackURL: "/",
-        });
-
-        if (error) {
-            setIsSubmitting(false);
-            setErrorMessage(error.message || "Something went wrong. Please try again.");
-            toast.error("Registration failed!");
+        if (!name.trim() || !email.trim() || !password) {
+            setErrorMessage("Name, email, and password are required.");
             return;
         }
 
-        // ২) সাইন-আপ সফল হলে, যদি "creator" সিলেক্ট করা হয় তাহলে Next.js-এর নিজের
-        //    API route কল করো (Express সার্ভারে না — কারণ better-auth session শুধু
-        //    Next.js অ্যাপেই verify করা সম্ভব, যেখানে auth.ts আছে)
-        if (role === "creator") {
-            try {
+        if (password.length < 6) {
+            setErrorMessage("Password must be at least 6 characters.");
+            return;
+        }
+
+        if (photoURL.trim() && !isValidAvatarUrl(photoURL.trim())) {
+            setErrorMessage("Use a direct image URL (e.g. https://i.ibb.co/xxx.jpg), not a page link.");
+            return;
+        }
+
+        setIsSubmitting(true);
+
+        try {
+            const { error } = await authClient.signUp.email({
+                name: name.trim(),
+                email: email.trim(),
+                password,
+                image: photoURL.trim() && isValidAvatarUrl(photoURL.trim()) ? photoURL.trim() : undefined,
+            });
+
+            if (error) {
+                setErrorMessage(error.message || "Something went wrong. Please try again.");
+                toast.error("Registration failed!");
+                return;
+            }
+
+            if (role === "creator") {
                 const roleRes = await fetch("/api/set-role", {
                     method: "PATCH",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ role: "creator" }),
                 });
-                const roleData = await roleRes.json();
 
                 if (!roleRes.ok) {
+                    const roleData = await roleRes.json().catch(() => ({}));
                     console.error("Role update failed:", roleData.message);
                 } else {
-                    // ✅ DB-তে role আপডেট সফল — cookieCache-এ পুরনো role থেকে যেতে পারে,
-                    // disableCookieCache দিয়ে জোর করে fresh session টানছি
                     await authClient.getSession({ query: { disableCookieCache: true } });
                 }
-            } catch (err) {
-                console.error("Role update failed:", err);
             }
-        }
 
-        setIsSubmitting(false);
-        toast.success("Registration Successful");
-
-        // ---- better-auth এর jwt() প্লাগিন থেকে টোকেন নিয়ে localStorage-এ রাখা ---
-        // এটা Express সার্ভারের protected রুট (যেমন POST /api/prompts) কল করার জন্য লাগবে
-        try {
             const { data, error: tokenError } = await authClient.token();
             if (tokenError) throw new Error(tokenError.message);
             if (data?.token) localStorage.setItem("access-token", data.token);
-        } catch (err) {
-            console.error("JWT fetch failed:", err);
-        }
 
-        router.push("/");
+            toast.success("Registration successful!");
+            router.push("/");
+            router.refresh();
+        } catch (err) {
+            setErrorMessage(err.message || "Registration failed. Please try again.");
+            toast.error("Registration failed!");
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const handleGoogleRegister = async () => {
@@ -103,7 +111,6 @@ const RegisterPage = () => {
     return (
         <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center bg-background px-4 py-12">
             <div className="w-full max-w-sm">
-                {/* ---- Heading ---- */}
                 <div className="mb-8 flex flex-col items-center text-center">
                     <span className="mb-3 grid h-11 w-11 place-items-center rounded-xl bg-accent text-accent-foreground">
                         <HiSparkles size={20} />
@@ -114,9 +121,7 @@ const RegisterPage = () => {
                     </p>
                 </div>
 
-                {/* ---- Card ---- */}
                 <div className="rounded-2xl border border-border bg-surface p-6 text-surface-foreground sm:p-7">
-                    {/* ---- Error banner ---- */}
                     {errorMessage && (
                         <p className="mb-4 rounded-lg border border-danger/40 bg-danger-soft px-3 py-2 text-sm text-danger">
                             {errorMessage}
@@ -124,46 +129,68 @@ const RegisterPage = () => {
                     )}
 
                     <Form onSubmit={handleSubmit} className="flex flex-col gap-5">
-                        <TextField name="name" type="text" isRequired>
+                        <TextField isRequired>
                             <Label>Name</Label>
                             <InputGroup>
                                 <InputGroup.Prefix>
                                     <FiUser className="text-muted" size={16} />
                                 </InputGroup.Prefix>
-                                <InputGroup.Input placeholder="Your full name" />
+                                <InputGroup.Input
+                                    placeholder="Your full name"
+                                    value={name}
+                                    onChange={(e) => setName(e.target.value)}
+                                    autoComplete="name"
+                                />
                             </InputGroup>
                             <FieldError />
                         </TextField>
 
-                        <TextField name="email" type="email" isRequired>
+                        <TextField isRequired>
                             <Label>Email</Label>
                             <InputGroup>
                                 <InputGroup.Prefix>
                                     <FiMail className="text-muted" size={16} />
                                 </InputGroup.Prefix>
-                                <InputGroup.Input placeholder="you@example.com" />
+                                <InputGroup.Input
+                                    type="email"
+                                    placeholder="you@example.com"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    autoComplete="email"
+                                />
                             </InputGroup>
                             <FieldError />
                         </TextField>
 
-                        <TextField name="photoURL" type="url">
-                            <Label>Photo URL</Label>
+                        <TextField>
+                            <Label>Photo URL (optional)</Label>
                             <InputGroup>
                                 <InputGroup.Prefix>
                                     <FiImage className="text-muted" size={16} />
                                 </InputGroup.Prefix>
-                                <InputGroup.Input placeholder="https://example.com/photo.jpg" />
+                                <InputGroup.Input
+                                    type="url"
+                                    placeholder="https://example.com/photo.jpg"
+                                    value={photoURL}
+                                    onChange={(e) => setPhotoURL(e.target.value)}
+                                />
                             </InputGroup>
                             <FieldError />
                         </TextField>
 
-                        <TextField name="password" type={showPassword ? "text" : "password"} isRequired>
+                        <TextField isRequired>
                             <Label>Password</Label>
                             <InputGroup>
                                 <InputGroup.Prefix>
                                     <FiLock className="text-muted" size={16} />
                                 </InputGroup.Prefix>
-                                <InputGroup.Input placeholder="At least 6 characters" />
+                                <InputGroup.Input
+                                    type={showPassword ? "text" : "password"}
+                                    placeholder="At least 6 characters"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    autoComplete="new-password"
+                                />
                                 <InputGroup.Suffix>
                                     <button
                                         type="button"
@@ -178,7 +205,6 @@ const RegisterPage = () => {
                             <FieldError />
                         </TextField>
 
-                        {/* ---- Join as: User / Creator ---- */}
                         <Select
                             selectedKeys={selectedRole}
                             onSelectionChange={setSelectedRole}
@@ -214,23 +240,25 @@ const RegisterPage = () => {
                         </Button>
                     </Form>
 
-                    {/* ---- Divider ---- */}
-                    <div className="my-5 flex items-center gap-3">
-                        <span className="h-px flex-1 bg-border" />
-                        <span className="text-xs text-muted">OR</span>
-                        <span className="h-px flex-1 bg-border" />
-                    </div>
+                    {googleEnabled && (
+                        <>
+                            <div className="my-5 flex items-center gap-3">
+                                <span className="h-px flex-1 bg-border" />
+                                <span className="text-xs text-muted">OR</span>
+                                <span className="h-px flex-1 bg-border" />
+                            </div>
 
-                    {/* ---- Social register ---- */}
-                    <Button
-                        onPress={handleGoogleRegister}
-                        variant="ghost"
-                        radius="full"
-                        className="w-full border border-border"
-                    >
-                        <FcGoogle size={18} />
-                        Continue with Google
-                    </Button>
+                            <Button
+                                onPress={handleGoogleRegister}
+                                variant="ghost"
+                                radius="full"
+                                className="w-full border border-border"
+                            >
+                                <FcGoogle size={18} />
+                                Continue with Google
+                            </Button>
+                        </>
+                    )}
                 </div>
 
                 <p className="mt-6 text-center text-sm text-muted">

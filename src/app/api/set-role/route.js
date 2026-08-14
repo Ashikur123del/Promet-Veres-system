@@ -1,9 +1,12 @@
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
-import { MongoClient, ObjectId } from "mongodb";
+import { getDb } from "@/lib/db";
+import { ObjectId } from "mongodb";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function PATCH(request) {
-  let client;
   try {
     const session = await auth.api.getSession({ headers: await headers() });
 
@@ -17,16 +20,9 @@ export async function PATCH(request) {
       return Response.json({ message: "Invalid role" }, { status: 400 });
     }
 
-    if (!process.env.MONGO_DB_URI || !process.env.DB_NAME) {
-      return Response.json({ message: "Database not configured" }, { status: 500 });
-    }
-
-    client = new MongoClient(process.env.MONGO_DB_URI);
-    await client.connect();
-    const db = client.db(process.env.DB_NAME);
-
+    const db = await getDb();
     const result = await db.collection("user").updateOne(
-      { _id: new ObjectId(session.user.id) },
+      { _id: new ObjectId(String(session.user.id)) },
       { $set: { role: "creator" } }
     );
 
@@ -38,7 +34,5 @@ export async function PATCH(request) {
   } catch (error) {
     console.error("set-role error:", error);
     return Response.json({ message: "Failed to update role" }, { status: 500 });
-  } finally {
-    if (client) await client.close();
   }
 }

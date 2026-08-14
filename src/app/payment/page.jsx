@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@heroui/react";
 import { FiCheck, FiLock, FiStar, FiZap } from "react-icons/fi";
 import { authClient } from "@/lib/auth-client";
 import { authFetch } from "@/lib/core/service";
 import { toast } from "react-toastify";
+
+export const dynamic = "force-dynamic";
 
 const PREMIUM_BENEFITS = [
   "Access all private/premium prompts",
@@ -15,8 +17,11 @@ const PREMIUM_BENEFITS = [
   "One-time payment — lifetime access",
 ];
 
-const PaymentPage = () => {
+// Inner Component containing useSearchParams and UI
+function PaymentContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnTo = searchParams.get("return") || "/dashboard/userprofile";
   const { data: session, isPending } = authClient.useSession();
   const [isLoading, setIsLoading] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
@@ -46,13 +51,26 @@ const PaymentPage = () => {
   const handleCheckout = async () => {
     setIsLoading(true);
     try {
-      const data = await authFetch("/api/payments/create-checkout-session", {
+      sessionStorage.setItem("payment-return-url", returnTo);
+
+      const res = await fetch("/api/payments/create-checkout-session", {
         method: "POST",
-        body: JSON.stringify({}),
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
       });
-      if (data.url) {
-        window.location.href = data.url;
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data?.message || "Failed to start checkout");
       }
+
+      if (data.url) {
+        window.location.assign(data.url);
+        return;
+      }
+
+      throw new Error("Stripe checkout URL was not returned");
     } catch (error) {
       toast.error(error.message || "Failed to start checkout");
       setIsLoading(false);
@@ -119,6 +137,19 @@ const PaymentPage = () => {
       </div>
     </section>
   );
-};
+}
 
-export default PaymentPage;
+// Main Export Wrapped in Suspense
+export default function PaymentPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="container mx-auto py-20">
+          <div className="mx-auto h-96 max-w-lg animate-pulse rounded-2xl border border-border bg-surface" />
+        </div>
+      }
+    >
+      <PaymentContent />
+    </Suspense>
+  );
+}

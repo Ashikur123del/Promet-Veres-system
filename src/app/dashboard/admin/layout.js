@@ -1,10 +1,10 @@
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
+import { getUserRoleFromDb } from "@/lib/get-user-role";
 
 // ⚠️ এই layout শুধু /dashboard/admin/* এর নিচের সব রুটে চলবে।
-// role টোকেন/কুকিতে যা-ই থাকুক, এখানে DB থেকে session.user.role আবার ভেরিফাই করা হচ্ছে,
-// যাতে কেউ ক্লায়েন্ট-সাইড ডেটা manipulate করে bypass করতে না পারে।
+// role DB থেকে আবার ভেরিফাই করা হয় — session cookie stale হলেও সঠিক role ধরবে।
 export default async function AdminLayout({ children }) {
   const session = await auth.api.getSession({ headers: await headers() });
 
@@ -12,9 +12,10 @@ export default async function AdminLayout({ children }) {
     redirect("/login");
   }
 
-  // admin সবকিছু পাবে — এই চেকটা শুধু non-admin-কে ব্লক করার জন্য
-  if (session.user.role !== "admin") {
-    redirect("/dashboard"); // user/creator হলে নিজের ডashboard-এ ফিরে যাবে
+  const role = (await getUserRoleFromDb(session.user.id)) || session.user.role;
+
+  if (role !== "admin") {
+    redirect("/dashboard");
   }
 
   return <>{children}</>;

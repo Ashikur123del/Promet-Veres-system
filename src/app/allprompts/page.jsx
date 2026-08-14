@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { FiSearch, FiCopy, FiStar, FiUser, FiChevronLeft, FiChevronRight } from "react-icons/fi";
 import { MdWorkspacePremium } from "react-icons/md";
 import { buttonVariants } from "@heroui/styles";
 
+export const dynamic = "force-dynamic";
 
 const AI_ENGINES = ["All", "ChatGPT", "Gemini", "Claude", "Midjourney", "Stable Diffusion", "Other"];
 const CATEGORIES = ["All", "Coding", "Writing", "Copywriting", "Graphics & Image", "Legal", "Other"];
@@ -41,19 +43,30 @@ const PromptCardSkeleton = () => (
   </div>
 );
 
-const AllPrompts = () => {
+const DIFFICULTIES = ["All", "Beginner", "Intermediate", "Pro"];
+
+// ---- Inner Component holding searchParams logic ----
+function AllPromptsContent() {
+  const searchParams = useSearchParams();
   const [prompts, setPrompts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
 
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(searchParams.get("search") || "");
   const [aiEngine, setAiEngine] = useState("All");
   const [category, setCategory] = useState("All");
+  const [difficulty, setDifficulty] = useState("All");
   const [sort, setSort] = useState("latest");
   const [page, setPage] = useState(1);
 
-  // ---- Debounced fetch — filter/sort/page বদলালে বা search টাইপ করার ৪০০ms পর fetch হবে ----
+  useEffect(() => {
+    const urlSearch = searchParams.get("search") || "";
+    setSearch(urlSearch);
+    setPage(1);
+  }, [searchParams]);
+
+  // ---- Debounced fetch ----
   useEffect(() => {
     const timer = setTimeout(() => {
       const fetchPrompts = async () => {
@@ -63,6 +76,7 @@ const AllPrompts = () => {
             search,
             category,
             aiTool: aiEngine,
+            difficulty,
             sort,
             page,
             limit: 6,
@@ -85,12 +99,13 @@ const AllPrompts = () => {
     }, 400);
 
     return () => clearTimeout(timer);
-  }, [search, aiEngine, category, sort, page]);
+  }, [search, aiEngine, category, difficulty, sort, page]);
 
   const handleReset = () => {
     setSearch("");
     setAiEngine("All");
     setCategory("All");
+    setDifficulty("All");
     setSort("latest");
     setPage(1);
   };
@@ -161,7 +176,7 @@ const AllPrompts = () => {
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
               Category
             </p>
-            <div className="flex flex-col gap-1">
+            <div className="mb-6 flex flex-col gap-1">
               {CATEGORIES.map((cat) => (
                 <button
                   key={cat}
@@ -176,6 +191,29 @@ const AllPrompts = () => {
                   }`}
                 >
                   {cat}
+                </button>
+              ))}
+            </div>
+
+            {/* ---- Difficulty ---- */}
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
+              Difficulty
+            </p>
+            <div className="flex flex-col gap-1">
+              {DIFFICULTIES.map((level) => (
+                <button
+                  key={level}
+                  onClick={() => {
+                    setPage(1);
+                    setDifficulty(level);
+                  }}
+                  className={`rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                    difficulty === level
+                      ? "bg-accent/15 font-medium text-accent"
+                      : "text-muted hover:bg-default-100/40 hover:text-foreground"
+                  }`}
+                >
+                  {level}
                 </button>
               ))}
             </div>
@@ -272,7 +310,7 @@ const AllPrompts = () => {
                           </div>
 
                           <Link
-                            href={`/allprompts/${prompt._id}`}
+                            href={`/allprompts/${String(prompt._id)}`}
                             className={buttonVariants({ variant: "primary" }) + " mt-2 w-full"}
                           >
                             View Details
@@ -328,6 +366,17 @@ const AllPrompts = () => {
       </div>
     </section>
   );
-};
+}
 
-export default AllPrompts;
+// ---- Main Export wrapped in Suspense ----
+export default function AllPrompts() {
+  return (
+    <Suspense
+      fallback={
+        <div className="p-12 text-center text-sm text-muted">Loading prompts catalog...</div>
+      }
+    >
+      <AllPromptsContent />
+    </Suspense>
+  );
+}

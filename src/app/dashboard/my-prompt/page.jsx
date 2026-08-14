@@ -1,8 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { FiEdit2, FiTrash2, FiBarChart2 } from "react-icons/fi";
 import { authClient } from "@/lib/auth-client";
+import { authFetch } from "@/lib/core/service";
+import PromptAnalyticsModal from "@/components/PromptAnalyticsModal";
 import { toast } from "react-toastify";
 
 const STATUS_STYLES = {
@@ -15,14 +18,11 @@ const MyPromptsPage = () => {
   const { data: session } = authClient.useSession();
   const [prompts, setPrompts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedPrompt, setSelectedPrompt] = useState(null);
 
   const fetchMyPrompts = async () => {
     try {
-      const token = localStorage.getItem("access-token");
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/prompts/my-prompts`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
+      const data = await authFetch("/api/prompts/my-prompts");
       setPrompts(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error(error);
@@ -39,16 +39,10 @@ const MyPromptsPage = () => {
     if (!confirm("Delete this prompt? This cannot be undone.")) return;
 
     try {
-      const token = localStorage.getItem("access-token");
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/prompts/${id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error("Delete failed");
-
+      await authFetch(`/api/prompts/${id}`, { method: "DELETE" });
       setPrompts((prev) => prev.filter((p) => p._id !== id));
       toast.success("Prompt deleted");
-    } catch (error) {
+    } catch {
       toast.error("Failed to delete prompt");
     }
   };
@@ -104,15 +98,22 @@ const MyPromptsPage = () => {
                   <td className="p-4">
                     <div className="flex items-center gap-3">
                       <button
+                        type="button"
                         title="View Analytics"
+                        onClick={() => setSelectedPrompt(prompt)}
                         className="text-muted hover:text-accent"
                       >
                         <FiBarChart2 size={16} />
                       </button>
-                      <button title="Update" className="text-muted hover:text-accent">
+                      <Link
+                        href={`/dashboard/edit-prompt/${String(prompt._id)}`}
+                        title="Update"
+                        className="text-muted hover:text-accent"
+                      >
                         <FiEdit2 size={16} />
-                      </button>
+                      </Link>
                       <button
+                        type="button"
                         title="Delete"
                         onClick={() => handleDelete(prompt._id)}
                         className="text-muted hover:text-red-400"
@@ -127,6 +128,11 @@ const MyPromptsPage = () => {
           </tbody>
         </table>
       </div>
+
+      <PromptAnalyticsModal
+        prompt={selectedPrompt}
+        onClose={() => setSelectedPrompt(null)}
+      />
     </div>
   );
 };

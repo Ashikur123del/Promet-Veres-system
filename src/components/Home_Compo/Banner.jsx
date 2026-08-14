@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Button } from "@heroui/react";
 import { FiSearch, FiArrowRight } from "react-icons/fi";
@@ -25,11 +26,16 @@ const fadeUp = {
 };
 
 const Banner = () => {
+  const router = useRouter();
+
   const handleSearchSubmit = (e) => {
     e.preventDefault();
-    const query = new FormData(e.currentTarget).get("query");
-    console.log("search:", query);
-    // এখানে পরে /all-prompts?search=... এ redirect হবে
+    const query = new FormData(e.currentTarget).get("query")?.toString().trim();
+    if (query) {
+      router.push(`/allprompts?search=${encodeURIComponent(query)}`);
+      return;
+    }
+    router.push("/allprompts");
   };
 
   return (
@@ -114,7 +120,7 @@ const Banner = () => {
             {TRENDING_TAGS.map((tag) => (
               <Link
                 key={tag}
-                href={`/all-prompts?tag=${encodeURIComponent(tag)}`}
+                href={`/allprompts?search=${encodeURIComponent(tag)}`}
                 className="rounded-full border border-border bg-surface px-3 py-1 text-xs text-muted transition-colors hover:text-surface-foreground"
               >
                 #{tag}
@@ -131,7 +137,7 @@ const Banner = () => {
           custom={5}
           className="mt-9 flex flex-wrap items-center justify-center gap-4"
         >
-          <Button as={Link} href="/all-prompts" variant="primary" radius="full" size="lg">
+          <Button as={Link} href="/allprompts" variant="primary" radius="full" size="lg">
             Explore All Prompts <FiArrowRight size={16} />
           </Button>
           <Button as={Link} href="/register" variant="secondary" radius="full" size="lg">

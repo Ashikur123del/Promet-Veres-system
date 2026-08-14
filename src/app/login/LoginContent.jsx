@@ -15,46 +15,62 @@ import { FiEye, FiEyeOff, FiMail, FiLock } from "react-icons/fi";
 import { FcGoogle } from "react-icons/fc";
 import { HiSparkles } from "react-icons/hi2";
 import { authClient } from "@/lib/auth-client";
+import { toast } from "react-toastify";
 
-export default function LoginContent() {
+const LoginContent = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirect") || "/";
+  const googleEnabled = Boolean(
+    process.env.NEXT_PUBLIC_GOOGLE_AUTH_ENABLED === "true"
+  );
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMessage("");
 
-    const formData = new FormData(e.currentTarget);
-    const { email, password } = Object.fromEntries(formData.entries());
-
-    setIsSubmitting(true);
-
-    const { error } = await authClient.signIn.email({
-      email,
-      password,
-      callbackURL: redirectTo,
-    });
-
-    if (error) {
-      setErrorMessage(error.message || "Invalid email or password.");
-      setIsSubmitting(false);
+    if (!email.trim() || !password) {
+      setErrorMessage("Email and password are required.");
       return;
     }
 
+    setIsSubmitting(true);
+
     try {
+      const { error } = await authClient.signIn.email({
+        email: email.trim(),
+        password,
+      });
+
+      if (error) {
+        setErrorMessage(error.message || "Invalid email or password.");
+        return;
+      }
+
       const { data, error: tokenError } = await authClient.token();
       if (tokenError) throw new Error(tokenError.message);
       if (data?.token) localStorage.setItem("access-token", data.token);
-    } catch (err) {
-      console.error("JWT fetch failed:", err);
-    }
 
-    setIsSubmitting(false);
-    router.push(redirectTo);
+      await authClient.getSession({ query: { disableCookieCache: true } });
+
+      toast.success("Logged in successfully");
+
+      if (redirectTo.startsWith("/dashboard")) {
+        router.push(redirectTo);
+      } else {
+        router.push(redirectTo);
+      }
+      router.refresh();
+    } catch (err) {
+      setErrorMessage(err.message || "Login failed. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleGoogleLogin = async () => {
@@ -85,24 +101,36 @@ export default function LoginContent() {
           )}
 
           <Form onSubmit={handleSubmit} className="flex flex-col gap-5">
-            <TextField name="email" type="email" isRequired>
+            <TextField isRequired>
               <Label>Email</Label>
               <InputGroup>
                 <InputGroup.Prefix>
                   <FiMail className="text-muted" size={16} />
                 </InputGroup.Prefix>
-                <InputGroup.Input placeholder="you@example.com" />
+                <InputGroup.Input
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  autoComplete="email"
+                />
               </InputGroup>
               <FieldError />
             </TextField>
 
-            <TextField name="password" type={showPassword ? "text" : "password"} isRequired>
+            <TextField isRequired>
               <Label>Password</Label>
               <InputGroup>
                 <InputGroup.Prefix>
                   <FiLock className="text-muted" size={16} />
                 </InputGroup.Prefix>
-                <InputGroup.Input placeholder="••••••••" />
+                <InputGroup.Input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password"
+                />
                 <InputGroup.Suffix>
                   <button
                     type="button"
@@ -128,21 +156,25 @@ export default function LoginContent() {
             </Button>
           </Form>
 
-          <div className="my-5 flex items-center gap-3">
-            <span className="h-px flex-1 bg-border" />
-            <span className="text-xs text-muted">OR</span>
-            <span className="h-px flex-1 bg-border" />
-          </div>
+          {googleEnabled && (
+            <>
+              <div className="my-5 flex items-center gap-3">
+                <span className="h-px flex-1 bg-border" />
+                <span className="text-xs text-muted">OR</span>
+                <span className="h-px flex-1 bg-border" />
+              </div>
 
-          <Button
-            onPress={handleGoogleLogin}
-            variant="ghost"
-            radius="full"
-            className="w-full border border-border"
-          >
-            <FcGoogle size={18} />
-            Continue with Google
-          </Button>
+              <Button
+                onPress={handleGoogleLogin}
+                variant="ghost"
+                radius="full"
+                className="w-full border border-border"
+              >
+                <FcGoogle size={18} />
+                Continue with Google
+              </Button>
+            </>
+          )}
         </div>
 
         <p className="mt-6 text-center text-sm text-muted">
@@ -154,4 +186,6 @@ export default function LoginContent() {
       </div>
     </div>
   );
-}
+};
+
+export default LoginContent;

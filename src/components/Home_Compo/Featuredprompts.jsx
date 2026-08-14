@@ -54,11 +54,12 @@ const FeaturedPrompts = () => {
   const [errorMessage, setErrorMessage] = useState("");
 
   const handleViewDetails = (promptId) => {
+    const id = String(promptId);
     if (!session?.user) {
-      router.push("/login");
+      router.push(`/login?redirect=/allprompts/${id}`);
       return;
     }
-    router.push(`/allprompts/${promptId}`);
+    router.push(`/allprompts/${id}`);
   };
 
   useEffect(() => {

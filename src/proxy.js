@@ -3,7 +3,7 @@ import { getSessionCookie } from "better-auth/cookies";
 
 const PUBLIC_ROUTES = ["/", "/login", "/register", "/allprompts"];
 
-export function middleware(request) {
+export function proxy(request) {
   const { pathname } = request.nextUrl;
   const sessionCookie = getSessionCookie(request);
 

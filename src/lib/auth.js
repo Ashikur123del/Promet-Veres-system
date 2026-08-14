@@ -1,29 +1,41 @@
-import dns from 'node:dns';
-dns.setServers(['8.8.8.8', '8.8.4.4']);
-
 import { betterAuth } from "better-auth";
 import { MongoClient } from "mongodb";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
 import { jwt } from "better-auth/plugins";
+import { nextCookies } from "better-auth/next-js";
+import { resolveMongoUri } from "./resolve-mongo-uri";
 
-const client = new MongoClient(process.env.MONGO_DB_URI || "mongodb://127.0.0.1:27017");
+const mongoUri = await resolveMongoUri(
+  process.env.MONGO_DB_URI || "mongodb://127.0.0.1:27017"
+);
+const client = new MongoClient(mongoUri);
 const db = client.db(process.env.DB_NAME || "Prompt_Verse");
 
 export const auth = betterAuth({
   secret: process.env.BETTER_AUTH_SECRET,
   baseURL: process.env.NEXT_PUBLIC_BETTER_AUTH_URL || "http://localhost:3000",
+  trustedOrigins: [
+    process.env.NEXT_PUBLIC_BETTER_AUTH_URL || "http://localhost:3000",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+  ],
   database: mongodbAdapter(db, {
     client,
   }),
   emailAndPassword: {
     enabled: true,
+    minPasswordLength: 6,
   },
-  socialProviders: {
-    google: {
-      clientId: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    },
-  },
+  ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+    ? {
+        socialProviders: {
+          google: {
+            clientId: process.env.GOOGLE_CLIENT_ID,
+            clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+          },
+        },
+      }
+    : {}),
 
   user: {
     additionalFields: {
@@ -48,6 +60,11 @@ export const auth = betterAuth({
       }
     },
     plugins: [
-      jwt()
-    ]
+      jwt({
+        jwks: {
+          disablePrivateKeyEncryption: true,
+        },
+      }),
+      nextCookies(),
+    ],
 });

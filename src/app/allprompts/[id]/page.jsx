@@ -21,7 +21,7 @@ import ReportModal from "@/components/ReportModal";
 const PromptDetailsPage = () => {
   const { id } = useParams();
   const router = useRouter();
-  const { data: session } = authClient.useSession();
+  const { data: session, isPending } = authClient.useSession();
   const currentUser = session?.user;
 
   const [prompt, setPrompt] = useState(null);
@@ -35,8 +35,10 @@ const PromptDetailsPage = () => {
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
 
   useEffect(() => {
+    if (isPending) return;
+
     if (!currentUser) {
-      router.push("/login");
+      router.push(`/login?redirect=/allprompts/${id}`);
       return;
     }
 
@@ -67,7 +69,7 @@ const PromptDetailsPage = () => {
     };
 
     if (id) fetchData();
-  }, [id, currentUser, router]);
+  }, [id, currentUser, isPending, router]);
 
   const isLockedContent = prompt?.visibility === "private" && !isPremiumUser;
 
@@ -122,7 +124,7 @@ const PromptDetailsPage = () => {
     }
   };
 
-  if (isLoading) {
+  if (isPending || isLoading) {
     return (
       <div className="py-16">
         <div className="h-96 animate-pulse rounded-2xl border border-border bg-surface" />
@@ -209,6 +211,13 @@ const PromptDetailsPage = () => {
           <p className="mt-2 text-sm text-muted">{prompt.description}</p>
         </div>
 
+        {prompt.usageInstructions && (
+          <div className="mt-6 rounded-2xl border border-border bg-surface p-6">
+            <h2 className="text-base font-semibold text-surface-foreground">Usage Instructions</h2>
+            <p className="mt-2 whitespace-pre-wrap text-sm text-muted">{prompt.usageInstructions}</p>
+          </div>
+        )}
+
         <div className="relative mt-6 overflow-hidden rounded-2xl border border-border bg-surface p-6">
           <h2 className="text-base font-semibold text-surface-foreground">Prompt Content</h2>
           <p
@@ -222,7 +231,7 @@ const PromptDetailsPage = () => {
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-surface/80 backdrop-blur-sm">
               <FiLock size={28} className="text-accent" />
               <p className="text-sm font-medium text-surface-foreground">This is a Premium prompt</p>
-              <Link href="/payment" className={buttonVariants({ variant: "primary" })}>
+              <Link href={`/payment?return=/allprompts/${id}`} className={buttonVariants({ variant: "primary" })}>
                 Subscribe to Premium
               </Link>
             </div>

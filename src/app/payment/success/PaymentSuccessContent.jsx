@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FiCheckCircle } from "react-icons/fi";
@@ -12,20 +12,47 @@ export default function PaymentSuccessContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("session_id");
+  const [returnUrl, setReturnUrl] = useState("/allprompts");
+
+  useEffect(() => {
+    const stored =
+      typeof window !== "undefined"
+        ? sessionStorage.getItem("payment-return-url") || "/allprompts"
+        : "/allprompts";
+    setReturnUrl(stored);
+  }, []);
 
   useEffect(() => {
     const refreshSession = async () => {
-      await authClient.getSession({ query: { disableCookieCache: true } });
-      toast.success("Premium activated! You now have full access.");
+      try {
+        if (sessionId) {
+          const res = await fetch(
+            `/api/payments/verify-session?session_id=${encodeURIComponent(sessionId)}`,
+            { credentials: "include" }
+          );
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            throw new Error(data?.message || "Could not verify payment");
+          }
+        }
+        await authClient.getSession({ query: { disableCookieCache: true } });
+        toast.success("Premium activated! You now have full access.");
+      } catch (error) {
+        console.error("Payment verification failed:", error);
+        toast.error(error.message || "Could not verify payment yet.");
+      }
     };
     refreshSession();
 
     const timer = setTimeout(() => {
-      router.push("/allprompts");
+      if (typeof window !== "undefined") {
+        sessionStorage.removeItem("payment-return-url");
+      }
+      router.push(returnUrl);
     }, 4000);
 
     return () => clearTimeout(timer);
-  }, [router]);
+  }, [router, sessionId, returnUrl]);
 
   return (
     <section className="flex min-h-[60vh] items-center justify-center bg-background px-4 py-20">
@@ -40,7 +67,10 @@ export default function PaymentSuccessContent() {
         {sessionId && (
           <p className="mt-2 text-xs text-muted">Transaction: {sessionId.slice(0, 20)}...</p>
         )}
-        <Link href="/allprompts" className={buttonVariants({ variant: "primary" }) + " mt-8 inline-flex"}>
+        <Link
+          href={returnUrl}
+          className={buttonVariants({ variant: "primary" }) + " mt-8 inline-flex"}
+        >
           Browse Prompts
         </Link>
         <p className="mt-4 text-xs text-muted">Redirecting in a few seconds...</p>

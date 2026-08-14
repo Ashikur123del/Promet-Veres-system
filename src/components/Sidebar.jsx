@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
   FaUser,
   FaPlusCircle,
@@ -17,6 +18,9 @@ import {
 } from "react-icons/fa";
 import { HiSparkles } from "react-icons/hi2";
 import { authClient } from "@/lib/auth-client";
+import { clearAccessToken } from "@/components/AuthTokenSync";
+import UserAvatar from "@/components/UserAvatar";
+import { authFetch } from "@/lib/core/service";
 
 // ---- Role অনুযায়ী আলাদা link set ----
 const LINKS_BY_ROLE = {
@@ -45,11 +49,24 @@ const Sidebar = () => {
   const pathname = usePathname();
   const { data: session, isPending } = authClient.useSession();
   const user = session?.user;
-  const role = user?.role || "user"; // ডিফল্ট user — better-auth-এ defaultValue: "user" সেট করা আছে
+  const [role, setRole] = useState(user?.role || "user");
+
+  useEffect(() => {
+    if (!session?.user) return;
+
+    authFetch("/api/users/me")
+      .then((profile) => {
+        if (profile?.role) setRole(profile.role);
+      })
+      .catch(() => {
+        if (session.user.role) setRole(session.user.role);
+      });
+  }, [session?.user]);
 
   const links = LINKS_BY_ROLE[role] || LINKS_BY_ROLE.user;
 
   const handleLogout = async () => {
+    clearAccessToken();
     await authClient.signOut();
     window.location.href = "/login";
   };
@@ -68,12 +85,8 @@ const Sidebar = () => {
       <div className="mb-6 flex items-center gap-3 rounded-xl border border-border bg-background/40 p-3">
         {isPending ? (
           <div className="h-10 w-10 animate-pulse rounded-full bg-default-200/40" />
-        ) : user?.image ? (
-          <img src={user.image} alt={user.name} className="h-10 w-10 rounded-full object-cover" />
         ) : (
-          <div className="grid h-10 w-10 place-items-center rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-sm font-bold text-white">
-            {user?.name?.charAt(0).toUpperCase() || "U"}
-          </div>
+          <UserAvatar name={user?.name} image={user?.image} size={40} className="h-10 w-10" />
         )}
         <div>
           <p className="text-sm font-semibold text-surface-foreground">

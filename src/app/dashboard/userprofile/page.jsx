@@ -123,7 +123,7 @@ const UserProfile = () => {
               </p>
             </div>
             <Link
-              href="/payment"
+              href="/payment?return=/dashboard/userprofile"
               className="flex items-center gap-2 whitespace-nowrap rounded-lg bg-gradient-to-r from-indigo-500 to-purple-600 px-6 py-2.5 font-medium text-white shadow-lg shadow-indigo-500/20 transition-all duration-200 hover:from-indigo-600 hover:to-purple-700"
             >
               <FaRocket size={16} />

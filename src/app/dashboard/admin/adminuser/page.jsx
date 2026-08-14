@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { FiChevronLeft, FiChevronRight } from "react-icons/fi";
+import { authFetch } from "@/lib/core/service";
 import { toast } from "react-toastify";
 
 const ROLES = ["user", "creator", "admin"];
@@ -8,15 +10,15 @@ const ROLES = ["user", "creator", "admin"];
 const AdminUsersPage = () => {
   const [users, setUsers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
   const fetchUsers = async () => {
+    setIsLoading(true);
     try {
-      const token = localStorage.getItem("access-token");
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/users`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      setUsers(Array.isArray(data) ? data : []);
+      const data = await authFetch(`/api/admin/users?page=${page}&limit=10`);
+      setUsers(data.users || []);
+      setTotalPages(data.totalPages || 1);
     } catch (error) {
       console.error(error);
     } finally {
@@ -26,24 +28,17 @@ const AdminUsersPage = () => {
 
   useEffect(() => {
     fetchUsers();
-  }, []);
+  }, [page]);
 
   const handleRoleChange = async (id, role) => {
     try {
-      const token = localStorage.getItem("access-token");
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/users/${id}/role`, {
+      await authFetch(`/api/admin/users/${id}/role`, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify({ role }),
       });
-      if (!res.ok) throw new Error("Failed");
-
       setUsers((prev) => prev.map((u) => (u._id === id ? { ...u, role } : u)));
       toast.success("Role updated");
-    } catch (error) {
+    } catch {
       toast.error("Failed to update role");
     }
   };
@@ -52,16 +47,10 @@ const AdminUsersPage = () => {
     if (!confirm("Delete this user? This cannot be undone.")) return;
 
     try {
-      const token = localStorage.getItem("access-token");
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/users/${id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error("Failed");
-
+      await authFetch(`/api/admin/users/${id}`, { method: "DELETE" });
       setUsers((prev) => prev.filter((u) => u._id !== id));
       toast.success("User deleted");
-    } catch (error) {
+    } catch {
       toast.error("Failed to delete user");
     }
   };
@@ -116,6 +105,7 @@ const AdminUsersPage = () => {
                   </td>
                   <td className="p-4">
                     <button
+                      type="button"
                       onClick={() => handleDelete(u._id)}
                       className="text-xs font-medium text-red-400 hover:underline"
                     >
@@ -128,6 +118,30 @@ const AdminUsersPage = () => {
           </tbody>
         </table>
       </div>
+
+      {totalPages > 1 && (
+        <div className="mt-6 flex items-center justify-center gap-2">
+          <button
+            type="button"
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page === 1}
+            className="grid h-9 w-9 place-items-center rounded-full border border-border text-muted disabled:opacity-40"
+          >
+            <FiChevronLeft size={16} />
+          </button>
+          <span className="text-sm text-muted">
+            Page {page} of {totalPages}
+          </span>
+          <button
+            type="button"
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={page === totalPages}
+            className="grid h-9 w-9 place-items-center rounded-full border border-border text-muted disabled:opacity-40"
+          >
+            <FiChevronRight size={16} />
+          </button>
+        </div>
+      )}
     </div>
   );
 };

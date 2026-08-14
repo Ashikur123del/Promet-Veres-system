@@ -1,7 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
   Button,
   Form,
@@ -24,28 +24,44 @@ const CATEGORIES = ["Coding", "Writing", "Copywriting", "Graphics & Image", "Leg
 const AI_TOOLS = ["ChatGPT", "Gemini", "Claude", "Midjourney", "Stable Diffusion", "Other"];
 const DIFFICULTIES = ["Beginner", "Intermediate", "Pro"];
 
-const AddPromptPage = () => {
+export default function EditPromptPage() {
   const router = useRouter();
+  const { id } = useParams();
   const { data: session } = authClient.useSession();
   const currentUser = session?.user;
+
+  const [prompt, setPrompt] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [category, setCategory] = useState(new Set(["Coding"]));
   const [aiTool, setAiTool] = useState(new Set(["ChatGPT"]));
   const [difficulty, setDifficulty] = useState(new Set(["Beginner"]));
   const [visibility, setVisibility] = useState("public");
   const [thumbnailFile, setThumbnailFile] = useState(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    const fetchPrompt = async () => {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/prompts/${id}`);
+        const data = await res.json();
+        setPrompt(data);
+        setCategory(new Set([data.category]));
+        setAiTool(new Set([data.aiTool]));
+        setDifficulty(new Set([data.difficulty]));
+        setVisibility(data.visibility || "public");
+      } catch {
+        toast.error("Failed to load prompt");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (id) fetchPrompt();
+  }, [id]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (!currentUser) {
-      toast.error("You must be logged in to add a prompt.");
-      return;
-    }
-
-    // ⚠️ FormData অবশ্যই প্রথম await-এর আগে নিতে হবে, না হলে React event object
-    // stale হয়ে যায় আর e.currentTarget পরে null হয়ে FormData ক্র্যাশ করে
     const formData = new FormData(e.currentTarget);
     const { title, description, content, tags, usageInstructions } =
       Object.fromEntries(formData.entries());
@@ -53,34 +69,28 @@ const AddPromptPage = () => {
     setIsSubmitting(true);
 
     try {
-      let thumbnailUrl = await uploadThumbnail(thumbnailFile);
+      const thumbnailUrl = await uploadThumbnail(thumbnailFile, prompt.thumbnail);
 
-      const newPrompt = {
-        title,
-        description,
-        content,
-        usageInstructions: usageInstructions?.trim() || "",
-        category: [...category][0],
-        aiTool: [...aiTool][0],
-        difficulty: [...difficulty][0],
-        tags: tags
-          .split(",")
-          .map((t) => t.trim())
-          .filter(Boolean),
-        thumbnail: thumbnailUrl,
-        visibility,
-        creatorEmail: currentUser.email,
-        creatorName: currentUser.name,
-        creatorId: currentUser.id,
-      };
-
-      // ---- ৩) JWT সহ protected রুটে POST ----
-      await authFetch("/api/prompts", {
-        method: "POST",
-        body: JSON.stringify(newPrompt),
+      await authFetch(`/api/prompts/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          title,
+          description,
+          content,
+          usageInstructions,
+          category: [...category][0],
+          aiTool: [...aiTool][0],
+          difficulty: [...difficulty][0],
+          tags: tags
+            .split(",")
+            .map((t) => t.trim())
+            .filter(Boolean),
+          thumbnail: thumbnailUrl,
+          visibility,
+        }),
       });
 
-      toast.success("Prompt submitted! It will appear after admin approval.");
+      toast.success("Prompt updated! It will go through admin review again.");
       router.push("/dashboard/my-prompt");
     } catch (error) {
       toast.error(error.message || "Something went wrong.");
@@ -89,23 +99,37 @@ const AddPromptPage = () => {
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="p-6">
+        <div className="h-96 max-w-2xl animate-pulse rounded-2xl border border-border bg-surface" />
+      </div>
+    );
+  }
+
+  if (!prompt) {
+    return <p className="p-6 text-muted">Prompt not found.</p>;
+  }
+
+  if (currentUser && prompt.creatorEmail !== currentUser.email) {
+    return <p className="p-6 text-danger">You don&apos;t have permission to edit this prompt.</p>;
+  }
+
   return (
     <div className="p-6">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-foreground">Add New Prompt</h1>
-        <p className="mt-1 text-sm text-muted">
-          New prompts go through admin review before appearing in the marketplace.
-        </p>
+        <h1 className="text-3xl font-bold text-foreground">Edit Prompt</h1>
+        <p className="mt-1 text-sm text-muted">Updating a prompt sends it back for admin review.</p>
       </div>
 
       <Form onSubmit={handleSubmit} className="flex max-w-2xl flex-col gap-5">
-        <TextField name="title" type="text" isRequired>
+        <TextField name="title" type="text" defaultValue={prompt.title} isRequired>
           <Label>Prompt Title</Label>
           <InputGroup>
             <InputGroup.Prefix>
               <FiType className="text-muted" size={16} />
             </InputGroup.Prefix>
-            <InputGroup.Input placeholder="e.g. SaaS Pricing Page Copywriter" />
+            <InputGroup.Input />
           </InputGroup>
           <FieldError />
         </TextField>
@@ -114,9 +138,9 @@ const AddPromptPage = () => {
           <label className="mb-1.5 block text-sm font-medium text-foreground">Prompt Description</label>
           <textarea
             name="description"
+            defaultValue={prompt.description}
             rows={2}
             required
-            placeholder="A short summary of what this prompt does"
             className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground outline-none focus:border-accent"
           />
         </div>
@@ -125,9 +149,9 @@ const AddPromptPage = () => {
           <label className="mb-1.5 block text-sm font-medium text-foreground">Prompt Content</label>
           <textarea
             name="content"
+            defaultValue={prompt.content}
             rows={6}
             required
-            placeholder="The full prompt text that users will copy"
             className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground outline-none focus:border-accent"
           />
         </div>
@@ -136,14 +160,14 @@ const AddPromptPage = () => {
           <label className="mb-1.5 block text-sm font-medium text-foreground">Usage Instructions</label>
           <textarea
             name="usageInstructions"
+            defaultValue={prompt.usageInstructions || ""}
             rows={3}
-            placeholder="Explain how to use this prompt effectively"
+            placeholder="How should users use this prompt?"
             className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground outline-none focus:border-accent"
           />
         </div>
 
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
-          {/* ---- Category ---- */}
           <Select selectedKeys={category} onSelectionChange={setCategory}>
             <Label>Category</Label>
             <Select.Trigger className="rounded-xl border border-border bg-background/40 px-3 py-2.5">
@@ -162,7 +186,6 @@ const AddPromptPage = () => {
             </Select.Popover>
           </Select>
 
-          {/* ---- AI Tool ---- */}
           <Select selectedKeys={aiTool} onSelectionChange={setAiTool}>
             <Label>AI Tool</Label>
             <Select.Trigger className="rounded-xl border border-border bg-background/40 px-3 py-2.5">
@@ -181,7 +204,6 @@ const AddPromptPage = () => {
             </Select.Popover>
           </Select>
 
-          {/* ---- Difficulty ---- */}
           <Select selectedKeys={difficulty} onSelectionChange={setDifficulty}>
             <Label>Difficulty</Label>
             <Select.Trigger className="rounded-xl border border-border bg-background/40 px-3 py-2.5">
@@ -201,23 +223,24 @@ const AddPromptPage = () => {
           </Select>
         </div>
 
-        <TextField name="tags">
+        <TextField name="tags" defaultValue={prompt.tags?.join(", ")}>
           <Label>Tags (comma separated)</Label>
           <InputGroup>
             <InputGroup.Prefix>
               <FiTag className="text-muted" size={16} />
             </InputGroup.Prefix>
-            <InputGroup.Input placeholder="e.g. react, frontend, tailwind" />
+            <InputGroup.Input />
           </InputGroup>
           <FieldError />
         </TextField>
 
-        {/* ---- Thumbnail upload ---- */}
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-foreground">Thumbnail Image</label>
+          <label className="text-sm font-medium text-foreground">
+            Thumbnail Image (leave empty to keep current)
+          </label>
           <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-dashed border-border bg-background/40 px-4 py-3 text-sm text-muted hover:border-accent/50">
             <FiImage size={16} />
-            {thumbnailFile ? thumbnailFile.name : "Click to upload an image"}
+            {thumbnailFile ? thumbnailFile.name : "Click to upload a new image"}
             <input
               type="file"
               accept="image/*"
@@ -227,7 +250,6 @@ const AddPromptPage = () => {
           </label>
         </div>
 
-        {/* ---- Visibility ---- */}
         <RadioGroup value={visibility} onChange={setVisibility} orientation="horizontal">
           <Label>Visibility</Label>
           <Radio value="public">Public</Radio>
@@ -241,11 +263,9 @@ const AddPromptPage = () => {
           className="mt-2 w-fit"
           isDisabled={isSubmitting}
         >
-          {isSubmitting ? "Submitting..." : "Submit Prompt"}
+          {isSubmitting ? "Saving..." : "Save Changes"}
         </Button>
       </Form>
     </div>
   );
-};
-
-export default AddPromptPage;
+}

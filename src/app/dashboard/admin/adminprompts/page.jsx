@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { FiChevronLeft, FiChevronRight } from "react-icons/fi";
+import { authFetch } from "@/lib/core/service";
 import { toast } from "react-toastify";
 
 const STATUS_STYLES = {
@@ -12,15 +14,15 @@ const STATUS_STYLES = {
 const AdminPromptsPage = () => {
   const [prompts, setPrompts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
   const fetchPrompts = async () => {
+    setIsLoading(true);
     try {
-      const token = localStorage.getItem("access-token");
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/prompts`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      setPrompts(Array.isArray(data) ? data : []);
+      const data = await authFetch(`/api/admin/prompts?page=${page}&limit=10`);
+      setPrompts(data.prompts || []);
+      setTotalPages(data.totalPages || 1);
     } catch (error) {
       console.error(error);
     } finally {
@@ -30,48 +32,35 @@ const AdminPromptsPage = () => {
 
   useEffect(() => {
     fetchPrompts();
-  }, []);
+  }, [page]);
 
   const updateStatus = async (id, status) => {
     let feedback;
     if (status === "rejected") {
-      feedback = prompt("Rejection reason (required):"); // doc অনুযায়ী reject-এ feedback আবশ্যক
+      feedback = window.prompt("Rejection reason (required):");
       if (!feedback) return;
     }
 
     try {
-      const token = localStorage.getItem("access-token");
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/prompts/${id}/status`, {
+      await authFetch(`/api/admin/prompts/${id}/status`, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify({ status, feedback }),
       });
-      if (!res.ok) throw new Error("Failed");
-
       setPrompts((prev) => prev.map((p) => (p._id === id ? { ...p, status } : p)));
       toast.success(`Prompt ${status}`);
-    } catch (error) {
+    } catch {
       toast.error("Failed to update status");
     }
   };
 
   const toggleFeature = async (id) => {
     try {
-      const token = localStorage.getItem("access-token");
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/prompts/${id}/feature`, {
-        method: "PATCH",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error("Failed");
-
+      await authFetch(`/api/admin/prompts/${id}/feature`, { method: "PATCH" });
       setPrompts((prev) =>
         prev.map((p) => (p._id === id ? { ...p, isFeatured: !p.isFeatured } : p))
       );
       toast.success("Feature status updated");
-    } catch (error) {
+    } catch {
       toast.error("Failed to update feature status");
     }
   };
@@ -80,16 +69,10 @@ const AdminPromptsPage = () => {
     if (!confirm("Delete this prompt?")) return;
 
     try {
-      const token = localStorage.getItem("access-token");
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/prompts/${id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error("Failed");
-
+      await authFetch(`/api/admin/prompts/${id}`, { method: "DELETE" });
       setPrompts((prev) => prev.filter((p) => p._id !== id));
       toast.success("Prompt deleted");
-    } catch (error) {
+    } catch {
       toast.error("Failed to delete prompt");
     }
   };
@@ -141,6 +124,7 @@ const AdminPromptsPage = () => {
                   </td>
                   <td className="p-4">
                     <button
+                      type="button"
                       onClick={() => toggleFeature(p._id)}
                       className={`text-xs font-medium ${
                         p.isFeatured ? "text-accent" : "text-muted"
@@ -152,18 +136,21 @@ const AdminPromptsPage = () => {
                   <td className="p-4">
                     <div className="flex items-center gap-3 text-xs font-medium">
                       <button
+                        type="button"
                         onClick={() => updateStatus(p._id, "approved")}
                         className="text-green-400 hover:underline"
                       >
                         Approve
                       </button>
                       <button
+                        type="button"
                         onClick={() => updateStatus(p._id, "rejected")}
                         className="text-yellow-400 hover:underline"
                       >
                         Reject
                       </button>
                       <button
+                        type="button"
                         onClick={() => handleDelete(p._id)}
                         className="text-red-400 hover:underline"
                       >
@@ -177,6 +164,30 @@ const AdminPromptsPage = () => {
           </tbody>
         </table>
       </div>
+
+      {totalPages > 1 && (
+        <div className="mt-6 flex items-center justify-center gap-2">
+          <button
+            type="button"
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page === 1}
+            className="grid h-9 w-9 place-items-center rounded-full border border-border text-muted disabled:opacity-40"
+          >
+            <FiChevronLeft size={16} />
+          </button>
+          <span className="text-sm text-muted">
+            Page {page} of {totalPages}
+          </span>
+          <button
+            type="button"
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={page === totalPages}
+            className="grid h-9 w-9 place-items-center rounded-full border border-border text-muted disabled:opacity-40"
+          >
+            <FiChevronRight size={16} />
+          </button>
+        </div>
+      )}
     </div>
   );
 };
