@@ -3,7 +3,7 @@ import { MongoClient } from "mongodb";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
 import { jwt } from "better-auth/plugins";
 import { nextCookies } from "better-auth/next-js";
-import { resolveMongoUri } from "./resolve-mongo-uri";
+import { resolveMongoUri } from "./resolve-mongo-uri.js";
 
 const mongoUri = await resolveMongoUri(
   process.env.MONGO_DB_URI || "mongodb://127.0.0.1:27017"
@@ -11,23 +11,23 @@ const mongoUri = await resolveMongoUri(
 const client = new MongoClient(mongoUri);
 const db = client.db(process.env.DB_NAME || "Prompt_Verse");
 
-// Server URL (better-auth endpoint)
 const baseURL =
   process.env.BETTER_AUTH_URL || "https://prompt-veres-server.vercel.app";
+
+const allowedOrigins = [
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+  "https://promet-veres-system.vercel.app",
+  "https://prompt-veres-server.vercel.app",
+  process.env.CLIENT_URL,
+].filter(Boolean);
 
 export const auth = betterAuth({
   secret: process.env.BETTER_AUTH_SECRET,
   baseURL,
 
-  // Client origins যা থেকে Request আসবে
-  trustedOrigins: [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "https://promet-veres-system.vercel.app", // Client Production URL
-    "https://prompt-veres-server.vercel.app",  // Server Production URL
-  ],
+  trustedOrigins: allowedOrigins,
 
-  // Cross-Domain Cookie এবং CORS পারমিশন
   advanced: {
     crossSubdomainCookies: {
       enabled: true,
