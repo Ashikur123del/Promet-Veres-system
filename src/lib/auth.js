@@ -11,14 +11,33 @@ const mongoUri = await resolveMongoUri(
 const client = new MongoClient(mongoUri);
 const db = client.db(process.env.DB_NAME || "Prompt_Verse");
 
+// Server URL (better-auth endpoint)
+const baseURL =
+  process.env.BETTER_AUTH_URL || "https://prompt-veres-server.vercel.app";
+
 export const auth = betterAuth({
   secret: process.env.BETTER_AUTH_SECRET,
-  baseURL: process.env.NEXT_PUBLIC_BETTER_AUTH_URL || "http://localhost:3000",
+  baseURL,
+
+  // Client origins যা থেকে Request আসবে
   trustedOrigins: [
-    process.env.NEXT_PUBLIC_BETTER_AUTH_URL || "http://localhost:3000",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "https://promet-veres-system.vercel.app", // Client Production URL
+    "https://prompt-veres-server.vercel.app",  // Server Production URL
   ],
+
+  // Cross-Domain Cookie এবং CORS পারমিশন
+  advanced: {
+    crossSubdomainCookies: {
+      enabled: true,
+    },
+    defaultCookieAttributes: {
+      sameSite: "none",
+      secure: true,
+    },
+  },
+
   database: mongodbAdapter(db, {
     client,
   }),
@@ -52,19 +71,19 @@ export const auth = betterAuth({
     },
   },
 
-   session: {
-      cookieCache: {
-        enabled: true,
-        strategy: "jwt",
-        maxAge: 7 * 24 * 60 * 60
-      }
+  session: {
+    cookieCache: {
+      enabled: true,
+      strategy: "jwt",
+      maxAge: 7 * 24 * 60 * 60,
     },
-    plugins: [
-      jwt({
-        jwks: {
-          disablePrivateKeyEncryption: true,
-        },
-      }),
-      nextCookies(),
-    ],
+  },
+  plugins: [
+    jwt({
+      jwks: {
+        disablePrivateKeyEncryption: true,
+      },
+    }),
+    nextCookies(),
+  ],
 });
