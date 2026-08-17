@@ -1,4 +1,4 @@
-import { betterAuth } from "better-auth";
+﻿import { betterAuth } from "better-auth";
 import { MongoClient } from "mongodb";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
 import { jwt } from "better-auth/plugins";
@@ -12,7 +12,10 @@ const client = new MongoClient(mongoUri);
 const db = client.db(process.env.DB_NAME || "Prompt_Verse");
 
 const baseURL =
-  process.env.BETTER_AUTH_URL || "https://prompt-veres-server.vercel.app";
+  process.env.BETTER_AUTH_URL || process.env.NEXT_PUBLIC_BETTER_AUTH_URL || "https://prompt-veres-server.vercel.app";
+
+console.log("better-auth baseURL:", baseURL);
+console.log("better-auth cookie sameSite (dev=false->none):", process.env.NODE_ENV === 'production' ? 'none (production)' : 'lax (development)');
 
 const allowedOrigins = [
   "http://localhost:3000",
@@ -33,8 +36,8 @@ export const auth = betterAuth({
       enabled: true,
     },
     defaultCookieAttributes: {
-      sameSite: "none",
-      secure: true,
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      secure: process.env.NODE_ENV === 'production',
     },
   },
 

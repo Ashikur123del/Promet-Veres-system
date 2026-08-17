@@ -20,9 +20,22 @@ export async function PATCH(request) {
       return Response.json({ message: "Invalid role" }, { status: 400 });
     }
 
+    const userId = session.user?.id;
+    if (!userId) {
+      return Response.json({ message: "Invalid session user id" }, { status: 400 });
+    }
+
+    let objectId;
+    try {
+      objectId = new ObjectId(String(userId));
+    } catch (err) {
+      console.error("Invalid user id for ObjectId:", userId, err);
+      return Response.json({ message: "Invalid user id" }, { status: 400 });
+    }
+
     const db = await getDb();
     const result = await db.collection("user").updateOne(
-      { _id: new ObjectId(String(session.user.id)) },
+      { _id: objectId },
       { $set: { role: "creator" } }
     );
 

@@ -52,19 +52,19 @@ const LoginContent = () => {
         return;
       }
 
-      const { data, error: tokenError } = await authClient.token();
-      if (tokenError) throw new Error(tokenError.message);
-      if (data?.token) localStorage.setItem("access-token", data.token);
+      // Ensure the session cookie is set and do not persist JWT in localStorage
+      try {
+        await authClient.getSession({ query: { disableCookieCache: true } });
+      } catch (e) {
+        console.error("getSession failed after signIn:", e);
+        // Warn the user but still proceed — the cookie may be set shortly by the auth provider.
+        toast.warning("Login succeeded but the session may not be ready yet. If you see unexpected behavior, try refreshing the page.");
+      }
 
-      await authClient.getSession({ query: { disableCookieCache: true } });
+      // Optionally refresh client session-aware data here if needed.
 
       toast.success("Logged in successfully");
-
-      if (redirectTo.startsWith("/dashboard")) {
-        router.push(redirectTo);
-      } else {
-        router.push(redirectTo);
-      }
+      router.push(redirectTo);
       router.refresh();
     } catch (err) {
       setErrorMessage(err.message || "Login failed. Please try again.");

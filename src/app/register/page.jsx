@@ -72,23 +72,45 @@ const RegisterPage = () => {
             }
 
             if (role === "creator") {
-                const roleRes = await fetch("/api/set-role", {
-                    method: "PATCH",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ role: "creator" }),
-                });
-
-                if (!roleRes.ok) {
-                    const roleData = await roleRes.json().catch(() => ({}));
-                    console.error("Role update failed:", roleData.message);
-                } else {
+                // Try to ensure the auth session cookie is available before calling the server-side role endpoint.
+                // This may still race in some environments, so implement a small retry loop on 401.
+                try {
                     await authClient.getSession({ query: { disableCookieCache: true } });
+                } catch (e) {
+                    // Non-fatal: session may be established by the server after sign-up flow.
+                    console.warn("getSession before role update failed:", e);
+                }
+
+                const tryUpdateRole = async (retries = 3, baseDelay = 300) => {
+                    for (let attempt = 0; attempt < retries; attempt++) {
+                        const roleRes = await fetch("/api/set-role", {
+                            method: "PATCH",
+                            headers: { "Content-Type": "application/json" },
+                            credentials: "same-origin",
+                            body: JSON.stringify({ role: "creator" }),
+                        });
+
+                        if (roleRes.ok) return roleRes;
+
+                        // If unauthorized, wait and retry a few times to allow cookie to be set
+                        if (roleRes.status === 401 && attempt < retries - 1) {
+                            await new Promise((r) => setTimeout(r, baseDelay * (attempt + 1)));
+                            continue;
+                        }
+
+                        return roleRes;
+                    }
+                };
+
+                const roleRes = await tryUpdateRole();
+                if (!roleRes || !roleRes.ok) {
+                    const roleData = await roleRes?.json().catch(() => ({}));
+                    console.error("Role update failed:", roleRes?.status, roleData);
+                    toast.error("Could not set account role. You can retry from your profile page.");
                 }
             }
 
-            const { data, error: tokenError } = await authClient.token();
-            if (tokenError) throw new Error(tokenError.message);
-            if (data?.token) localStorage.setItem("access-token", data.token);
+            // Using cookie-based sessions (better-auth). No client-side persistent token is required here.
 
             toast.success("Registration successful!");
             router.push("/");

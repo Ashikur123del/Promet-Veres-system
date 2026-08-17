@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { FiUsers, FiFileText, FiMessageSquare, FiCopy } from "react-icons/fi";
@@ -22,14 +22,20 @@ const AdminAnalyticsPage = () => {
   useEffect(() => {
     const fetchAnalytics = async () => {
       try {
-        const token = localStorage.getItem("access-token");
+        // Prefer cookie-based auth; send cookies to backend so server can verify JWT from cookies
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/analytics`, {
-          headers: { Authorization: `Bearer ${token}` },
+          credentials: "include",
         });
+
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body.message || `Request failed with status ${res.status}`);
+        }
+
         const data = await res.json();
         setAnalytics(data);
       } catch (error) {
-        console.error(error);
+        console.error("Failed to load analytics:", error.message || error);
       } finally {
         setIsLoading(false);
       }

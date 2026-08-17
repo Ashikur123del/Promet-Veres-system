@@ -20,17 +20,9 @@ export default function AuthTokenSync() {
       return;
     }
 
-    authClient
-      .token()
-      .then(({ data, error }) => {
-        if (error) throw error;
-        if (data?.token) {
-          localStorage.setItem("access-token", data.token);
-        }
-      })
-      .catch((error) => {
-        console.error("JWT sync failed:", error);
-      });
+    // No client-side persistent token sync required: better-auth issues and manages session cookies.
+    // If future flows require a short-lived in-memory token, use authClient.token() with explicit handling.
+
   }, [session?.user, isPending]);
 
   return null;
