@@ -25,11 +25,16 @@ const allowedOrigins = [
   process.env.CLIENT_URL,
 ].filter(Boolean);
 
+
+
 export const auth = betterAuth({
   secret: process.env.BETTER_AUTH_SECRET,
   baseURL,
 
-  trustedOrigins: allowedOrigins,
+  trustedOrigins: [
+    ...allowedOrigins,
+    "https://*.vercel.app", // allow all Vercel preview deployments
+  ],
 
   advanced: {
     crossSubdomainCookies: {
