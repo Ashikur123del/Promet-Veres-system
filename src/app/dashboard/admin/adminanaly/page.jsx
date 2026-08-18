@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { FiUsers, FiFileText, FiMessageSquare, FiCopy } from "react-icons/fi";
+import { authFetch } from "@/lib/core/service"; // apnar actual path onujayi thik korun
 
 const Card = ({ icon: Icon, label, value, iconBg }) => (
   <div className="flex items-center gap-4 rounded-2xl border border-border bg-surface p-5">
@@ -22,17 +23,7 @@ const AdminAnalyticsPage = () => {
   useEffect(() => {
     const fetchAnalytics = async () => {
       try {
-        // Prefer cookie-based auth; send cookies to backend so server can verify JWT from cookies
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/analytics`, {
-          credentials: "include",
-        });
-
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
-          throw new Error(body.message || `Request failed with status ${res.status}`);
-        }
-
-        const data = await res.json();
+        const data = await authFetch("/api/admin/analytics");
         setAnalytics(data);
       } catch (error) {
         console.error("Failed to load analytics:", error.message || error);
@@ -48,7 +39,7 @@ const AdminAnalyticsPage = () => {
     <div className="p-6">
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-foreground">Platform Analytics</h1>
-        <p className="mt-1 text-sm text-muted">A bird's-eye view of the whole platform.</p>
+        <p className="mt-1 text-sm text-muted">A birds-eye view of the whole platform.</p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
