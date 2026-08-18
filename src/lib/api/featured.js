@@ -1,13 +1,9 @@
-import { serverFetch } from "../core/service";
-import { getUserSession } from "../session/session";
-
 export const getUserData = async (userId) => {
-  // ⚠️ এখানে /users/:id রুট তোমার সার্ভারে বানাতে হবে (এখনো নেই)
   return serverFetch(`/api/users/${userId}`);
 };
 
 export const getLoggedUser = async () => {
-  const user = await getUserSession();
+  const user = await getUserSession();  // better-auth theke session neya (server-side)
   if (!user?.id) return null;
-  return getUserData(user.id);
+  return getUserData(user.id);           // backend theke sei user-er full data fetch kora
 };
