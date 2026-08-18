@@ -11,7 +11,8 @@ const mongoUri = await resolveMongoUri(
 const client = new MongoClient(mongoUri);
 const db = client.db(process.env.DB_NAME || "Prompt_Verse");
 
-const baseURL =   process.env.BETTER_AUTH_URL || process.env.NEXT_PUBLIC_BETTER_AUTH_URL || "https://prompt-veres-server.vercel.app"
+const baseURL = process.env.BETTER_AUTH_URL || process.env.NEXT_PUBLIC_BETTER_AUTH_URL || "https://prompt-veres-server.vercel.app"
+
 
 console.log("better-auth baseURL:", baseURL);
 console.log("better-auth cookie sameSite (dev=false->none):", process.env.NODE_ENV === 'production' ? 'none (production)' : 'lax (development)');
@@ -54,13 +55,13 @@ export const auth = betterAuth({
   },
   ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
     ? {
-        socialProviders: {
-          google: {
-            clientId: process.env.GOOGLE_CLIENT_ID,
-            clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-          },
+      socialProviders: {
+        google: {
+          clientId: process.env.GOOGLE_CLIENT_ID,
+          clientSecret: process.env.GOOGLE_CLIENT_SECRET,
         },
-      }
+      },
+    }
     : {}),
 
   user: {

@@ -1,15 +1,12 @@
 ﻿import { authClient, token as authToken } from "@/lib/auth-client";
-import { getServerAuthToken } from "@/lib/get-server-token";
 
 const baseUrl = process.env.NEXT_PUBLIC_API_URL || "";
 
-// ---- Client-side (browser component) theke token neya ----
 export const getAuthHeaders = async () => {
   try {
     let t = undefined;
-
     if (typeof authClient?.token === "function") {
-      const result = await authClient.token(); // { data, error }
+      const result = await authClient.token();
       t = result?.data?.token;
     } else if (typeof authToken === "function") {
       const result = await authToken();
@@ -17,7 +14,6 @@ export const getAuthHeaders = async () => {
     } else if (typeof authToken === "string") {
       t = authToken;
     }
-
     if (t) return { Authorization: `Bearer ${t}` };
   } catch (e) {
     if (process.env.NODE_ENV !== "production") console.debug("getAuthHeaders token read failed:", e?.message || e);
@@ -25,18 +21,6 @@ export const getAuthHeaders = async () => {
   return {};
 };
 
-// ---- Server Component/Server Action theke token neya ----
-export const getServerAuthHeaders = async () => {
-  try {
-    const token = await getServerAuthToken();
-    if (token) return { Authorization: `Bearer ${token}` };
-  } catch (e) {
-    if (process.env.NODE_ENV !== "production") console.debug("getServerAuthHeaders failed:", e?.message || e);
-  }
-  return {};
-};
-
-// ---- Public/no-auth GET (server-side, cookie chara) ----
 export const serverFetch = async (path) => {
   const res = await fetch(`${baseUrl}${path}`);
   const contentType = res.headers.get("content-type");
@@ -48,24 +32,6 @@ export const serverFetch = async (path) => {
   return data;
 };
 
-// ---- Authenticated GET, Server Component theke (getUserData/getLoggedUser-er jonno) ----
-export const serverAuthFetch = async (path) => {
-  const headers = await getServerAuthHeaders();
-
-  const res = await fetch(`${baseUrl}${path}`, { headers });
-
-  const contentType = res.headers.get("content-type");
-  const data = contentType?.includes("application/json") ? await res.json() : await res.text();
-  if (!res.ok) {
-    const message = (data && data.message) || (typeof data === "string" ? data.slice(0, 200) : `Server error ${res.status}`);
-    const err = new Error(message);
-    err.status = res.status;
-    throw err;
-  }
-  return data;
-};
-
-// ---- Client-side authenticated fetch (browser component-e "use client" er moddhe use korun) ----
 export const authFetch = async (path, options = {}) => {
   const dynamicHeaders = (options.headers || {});
   try {
@@ -83,12 +49,7 @@ export const authFetch = async (path, options = {}) => {
     },
   };
 
-  if (process.env.NODE_ENV !== "production") {
-    console.debug("authFetch options:", { path, fetchOptions });
-  }
-
   const res = await fetch(`${baseUrl}${path}`, fetchOptions);
-
   const contentType = res.headers.get("content-type");
   const data = contentType?.includes("application/json") ? await res.json().catch(() => null) : await res.text().catch(() => null);
 
@@ -98,18 +59,14 @@ export const authFetch = async (path, options = {}) => {
     err.status = res.status;
     err.path = path;
     err.response = data;
-
     if (process.env.NODE_ENV !== "production") {
-      console.error("authFetch failed:", { path, status: res.status, message, fetchOptions, response: data });
+      console.error("authFetch failed:", { path, status: res.status, message, response: data });
     }
-
     throw err;
   }
-
   return data;
 };
 
-// ---- Client-side authenticated POST/mutation ----
 export const serverMutation = async (path, data) => {
   const authHeaders = await getAuthHeaders();
 
@@ -132,6 +89,5 @@ export const serverMutation = async (path, data) => {
   if (!res.ok) {
     throw new Error(result?.message || "Failed to create data");
   }
-
   return result;
 };
